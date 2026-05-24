@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QPC — 1v1 Duel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="game-1v1.css">
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<div class="game-wrap" id="game-wrap">
+
+    <!-- ── TOPBAR ── -->
+    <div class="topbar">
+        <!-- Joueur 1 (moi) -->
+        <div class="player-info p1" id="player1-info">
+            <div class="player-avatar p1" id="p1-avatar">K</div>
+            <div>
+                <div class="player-details">
+                    <div class="player-name" id="p1-name">Joueur 1</div>
+                    <div class="player-elo-tag" id="p1-elo">1200 ELO</div>
+                </div>
+            </div>
+            <div class="player-score-wrap">
+                <div class="player-score p1" id="p1-score">0</div>
+                <div class="player-score-label">pts</div>
+            </div>
+        </div>
+
+        <!-- Centre -->
+        <div class="topbar-center">
+            <div class="q-counter" id="q-counter">Q 1/10</div>
+            <div class="vs-badge">VS</div>
+            <div class="target-score" id="target-score">→ 1000 pts</div>
+        </div>
+
+        <!-- Joueur 2 (adversaire) -->
+        <div class="player-info p2" id="player2-info">
+            <div class="player-avatar p2" id="p2-avatar">O</div>
+            <div>
+                <div class="player-details">
+                    <div class="player-name" id="p2-name">Joueur 2</div>
+                    <div class="player-elo-tag" id="p2-elo">1200 ELO</div>
+                </div>
+            </div>
+            <div class="player-score-wrap">
+                <div class="player-score p2" id="p2-score">0</div>
+                <div class="player-score-label">pts</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SCORE BAR ── -->
+    <div class="score-bar-wrap">
+        <div class="score-bar-p1" id="score-bar-p1"></div>
+        <div class="score-bar-sep"></div>
+        <div class="score-bar-p2" id="score-bar-p2"></div>
+    </div>
+
+    <!-- ── MAIN ── -->
+    <div class="game-content">
+
+        <!-- Q Meta -->
+        <div class="q-meta">
+            <div class="q-category">
+                <span id="cat-icon">🎲</span>
+                <span id="cat-label">—</span>
+            </div>
+            <span class="diff-badge" id="diff-badge">—</span>
+        </div>
+
+        <!-- Timer -->
+        <div class="timer-wrap">
+            <div class="timer-number" id="timer-num">—</div>
+            <div class="timer-bar-bg">
+                <div class="timer-bar-fill" id="timer-fill" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- Question -->
+        <div class="question-card reading-phase" id="question-card">
+            <p class="question-text" id="question-text">En attente de la partie…</p>
+        </div>
+
+        <!-- Options -->
+        <div class="options-grid" id="options-grid">
+            <button class="option-btn"><span class="option-letter">A</span><span>—</span></button>
+            <button class="option-btn"><span class="option-letter">B</span><span>—</span></button>
+            <button class="option-btn"><span class="option-letter">C</span><span>—</span></button>
+            <button class="option-btn"><span class="option-letter">D</span><span>—</span></button>
+        </div>
+
+        <!-- Buzz -->
+        <div class="buzz-zone">
+            <button class="buzz-btn locked" id="buzz-btn">
+                <span class="buzz-icon">🎯</span>
+                <span class="buzz-label">Buzz</span>
+            </button>
+            <div class="buzz-status locked-msg" id="buzz-status">En attente…</div>
+        </div>
+
+    </div>
+
+    <!-- ── BOTTOM BAR ── -->
+    <div class="bottom-bar">
+        <button class="abandon-btn" id="abandon-btn">✕ Abandonner</button>
+        <div class="connection-status">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Connecté</span>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── COUNTDOWN OVERLAY ── -->
+<div class="overlay" id="countdown-overlay">
+    <div class="countdown-number" id="countdown-number">3</div>
+    <div class="countdown-sub">La partie commence</div>
+</div>
+
+<!-- ── FEEDBACK BADGE ── -->
+<div class="feedback-badge" id="feedback-badge">
+    <div class="feedback-icon" id="fb-icon">✓</div>
+    <div class="feedback-who"  id="fb-who">Joueur 1</div>
+    <div class="feedback-text" id="fb-text">Bonne réponse !</div>
+    <div class="feedback-pts"  id="fb-pts">+100 pts</div>
+</div>
+
+<!-- ── END SCREEN ── -->
+<div class="end-screen" id="end-screen">
+    <div class="end-trophy">🏆</div>
+    <div class="end-winner-label">Vainqueur</div>
+    <div class="end-winner-name" id="end-winner-name">—</div>
+    <div class="end-scores">
+        <div class="end-player p1-card" id="end-p1">
+            <div class="end-player-name" id="end-p1-name">J1</div>
+            <div class="end-player-score" id="end-p1-score">0</div>
+            <div class="end-player-elo"  id="end-p1-elo"></div>
+        </div>
+        <div class="end-vs-sep">VS</div>
+        <div class="end-player p2-card" id="end-p2">
+            <div class="end-player-name" id="end-p2-name">J2</div>
+            <div class="end-player-score" id="end-p2-score">0</div>
+            <div class="end-player-elo"  id="end-p2-elo"></div>
+        </div>
+    </div>
+
+    <!-- Statut revanche (caché par défaut) -->
+    <div class="rematch-status" id="rematch-status"></div>
+
+    <div class="end-btns">
+        <button class="end-btn-primary"   id="rematch-btn">↺ Revanche</button>
+        <button class="end-btn-secondary" id="dashboard-btn">Dashboard</button>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="game-1v1.js"></script>
+
+</body>
+</html>
