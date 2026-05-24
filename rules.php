@@ -1,8 +1,5 @@
 <?php
 session_start();
-require_once "db.php";
-require_once "funnel_tracker.php";
-trackFunnel('visite_regles');
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -12,7 +9,7 @@ trackFunnel('visite_regles');
     <title>Règles — Question Champion</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Rajdhani:wght@300;500;700&family=Kanit:ital,wght@1,900&family=Montserrat:wght@400;700;900&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Rajdhani:wght@300;500;700&family=Great+Vibes&display=swap" rel="stylesheet">
     <style>
         :root {
             --gold-light: #fcf6ba;
@@ -61,74 +58,70 @@ trackFunnel('visite_regles');
             top: 0; left: 0; right: 0;
             z-index: 100;
             display: grid;
-            grid-template-columns: 30% 50% 20%;
+            grid-template-columns: 180px 1fr 180px;
             align-items: center;
-            padding: 0 40px;
             height: 72px;
-            border-bottom: 1px solid rgba(212,175,55,0.2);
+            padding: 0 80px;
+            border-bottom: 1px solid rgba(212,175,55,0.12);
             background: rgba(6,6,6,0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             opacity: 0;
-            animation: fadeDown 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.2s forwards;
+            animation: fadeDown 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.1s forwards;
         }
 
         .logo {
-            font-family: 'Kanit', sans-serif;
-            font-weight: 900;
-            font-size: 1.1rem;
-            letter-spacing: 3px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
             background: var(--metallic);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-transform: uppercase;
-            filter: drop-shadow(0 0 6px var(--gold-glow));
         }
 
         nav ul {
-            display: flex;
             list-style: none;
-            gap: 28px;
-            align-items: center;
+            display: flex;
             justify-content: center;
+            gap: 40px;
+            align-items: center;
         }
 
         nav a {
-            font-family: 'Montserrat', sans-serif;
-            text-decoration: none;
-            color: rgba(255,255,255,0.75);
-            font-size: 0.78rem;
-            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 500;
+            font-size: 0.8rem;
             letter-spacing: 2px;
             text-transform: uppercase;
-            position: relative;
+            text-decoration: none;
+            color: rgba(255,255,255,0.55);
             transition: color 0.3s;
+            position: relative;
         }
         nav a:hover { color: var(--gold-light); }
         nav a::after {
             content: '';
             position: absolute;
-            width: 0; height: 1px;
             bottom: -4px; left: 0;
+            width: 0; height: 1px;
             background: var(--metallic);
             transition: width 0.3s;
         }
         nav a:hover::after { width: 100%; }
 
         .btn-play {
-            font-family: 'Montserrat', sans-serif;
             background: var(--metallic);
             color: #000 !important;
             -webkit-text-fill-color: #000 !important;
             padding: 7px 22px;
-            border-radius: 30px;
-            font-weight: 900;
-            border: 1px solid var(--gold-base);
-            box-shadow: 0 0 12px var(--gold-glow);
-            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: 2px;
+            font-weight: 700;
+            letter-spacing: 2px;
         }
-        .btn-play:hover { transform: scale(1.05); box-shadow: 0 0 22px rgba(212,175,55,0.7); }
         .btn-play::after { display: none; }
+        .btn-play:hover { opacity: 0.9; }
 
         .header-right {
             display: flex;
@@ -136,27 +129,21 @@ trackFunnel('visite_regles');
         }
 
         .btn-connexion {
-            font-family: 'Montserrat', sans-serif;
-            justify-self: end;
-            background: transparent;
-            border: 1px solid rgba(212,175,55,0.5);
-            color: var(--gold-light) !important;
-            -webkit-text-fill-color: var(--gold-light) !important;
-            padding: 7px 22px;
-            border-radius: 30px;
-            font-size: 0.78rem;
+            font-family: 'Rajdhani', sans-serif;
             font-weight: 700;
+            font-size: 0.78rem;
             letter-spacing: 2px;
             text-transform: uppercase;
             text-decoration: none;
-            transition: all 0.3s;
-            white-space: nowrap;
+            color: var(--gold-base);
+            border: 1px solid rgba(212,175,55,0.35);
+            padding: 7px 20px;
+            border-radius: 2px;
+            transition: background 0.3s, color 0.3s;
         }
         .btn-connexion:hover {
-            background: var(--metallic);
-            -webkit-text-fill-color: #000 !important;
-            border-color: transparent;
-            box-shadow: 0 0 18px var(--gold-glow);
+            background: var(--gold-muted);
+            color: var(--gold-light);
         }
 
         /* ── PAGE HERO ──────────────────────────────── */
@@ -333,7 +320,7 @@ trackFunnel('visite_regles');
 
         /* ── RESPONSIVE ─────────────────────────────── */
         @media (max-width: 768px) {
-            header { grid-template-columns: 1fr auto; padding: 0 20px; }
+            header { grid-template-columns: 1fr 1fr; padding: 0 20px; }
             .line-left, .line-right { display: none; }
             .card { grid-template-columns: 1fr; }
             .card-visual { display: none; }
@@ -351,7 +338,7 @@ trackFunnel('visite_regles');
     <div class="line-right"></div>
 
     <header>
-        <div class="logo">HESTIM</div>
+        <div class="logo">Hestim</div>
         <nav>
              <ul>
                 <li><a href="index.php">Home</a></li>
