@@ -1,9 +1,4 @@
-<?php
-session_start();
-require_once "db.php";
-require_once "funnel_tracker.php";
-trackFunnel('visite_apropos');
-?>
+<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -889,11 +884,7 @@ html, body {
       <li><a href="aboutus.php">About Us</a></li>
     </ul>
   </nav>
-  <?php if (isset($_SESSION['user_id'])): ?>
-    <a href="dashboard.php" class="btn-connexion">Dashboard</a>
-  <?php else: ?>
-    <a href="connexion.php" class="btn-connexion">Connexion</a>
-  <?php endif; ?>
+  <a href="connexion.php" class="btn-connexion">Connexion</a>
   <button class="hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>

@@ -8,150 +8,150 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-  $user_id = $_SESSION['user_id'];
+$user_id = $_SESSION['user_id'];
 
-  // ── Données utilisateur ─────────────────────────────────────
-  $stmt = $conn->prepare("SELECT username, email, profile_pic, pays, age FROM users WHERE id = ?");
-  $stmt->bind_param("i", $user_id);
-  $stmt->execute();
-  $user = $stmt->get_result()->fetch_assoc();
+// ── Données utilisateur ─────────────────────────────────────
+$stmt = $conn->prepare("SELECT username, email, profile_pic, pays, age FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
 
-  // ── Stats globales ──────────────────────────────────────────
-  $stmt2 = $conn->prepare("SELECT * FROM player_stats WHERE user_id = ?");
-  $stmt2->bind_param("i", $user_id);
-  $stmt2->execute();
-  $stats = $stmt2->get_result()->fetch_assoc();
+// ── Stats globales ──────────────────────────────────────────
+$stmt2 = $conn->prepare("SELECT * FROM player_stats WHERE user_id = ?");
+$stmt2->bind_param("i", $user_id);
+$stmt2->execute();
+$stats = $stmt2->get_result()->fetch_assoc();
 
-  // Valeurs par défaut si pas encore de stats
-  $total_games  = $stats['total_games']    ?? 0;
-  $victories    = $stats['victories']      ?? 0;
-  $best_score   = $stats['best_score']     ?? 0;
-  $winrate      = $stats['winrate']        ?? 0;
-  $avg_time     = $stats['average_time_answer'] ?? 0;
-  $best_streak  = $stats['best_streak']    ?? 0;
-  $total_time   = $stats['total_time_played'] ?? 0;
+// Valeurs par défaut si pas encore de stats
+$total_games  = $stats['total_games']    ?? 0;
+$victories    = $stats['victories']      ?? 0;
+$best_score   = $stats['best_score']     ?? 0;
+$winrate      = $stats['winrate']        ?? 0;
+$avg_time     = $stats['average_time_answer'] ?? 0;
+$best_streak  = $stats['best_streak']    ?? 0;
+$total_time   = $stats['total_time_played'] ?? 0;
 
-  // ── Rang global ─────────────────────────────────────────────
-  $rank_stmt = $conn->prepare("SELECT `rank` FROM leaderboard WHERE id = ?");
-  $rank_stmt->bind_param("i", $user_id);
-  $rank_stmt->execute();
-  $rank_row = $rank_stmt->get_result()->fetch_assoc();
-  $global_rank = $rank_row['rank'] ?? '—';
+// ── Rang global ─────────────────────────────────────────────
+$rank_stmt = $conn->prepare("SELECT `rank` FROM leaderboard WHERE id = ?");
+$rank_stmt->bind_param("i", $user_id);
+$rank_stmt->execute();
+$rank_row = $rank_stmt->get_result()->fetch_assoc();
+$global_rank = $rank_row['rank'] ?? '—';
 
-  // ── Stats par catégorie (pour le radar) ─────────────────────
-  $cat_stmt = $conn->prepare("
-      SELECT c.nom, p.success_rate
-      FROM player_stats_by_category p
-      JOIN categories c ON c.id = p.category_id
-      WHERE p.user_id = ?
-      ORDER BY p.success_rate DESC
-  ");
-  $cat_stmt->bind_param("i", $user_id);
-  $cat_stmt->execute();
-  $cat_result = $cat_stmt->get_result();
-  $cat_labels = [];
-  $cat_values = [];
-  while ($row = $cat_result->fetch_assoc()) {
-      $cat_labels[] = $row['nom'];
-      $cat_values[] = round($row['success_rate'], 1);
-  }
+// ── Stats par catégorie (pour le radar) ─────────────────────
+$cat_stmt = $conn->prepare("
+    SELECT c.nom, p.success_rate
+    FROM player_stats_by_category p
+    JOIN categories c ON c.id = p.category_id
+    WHERE p.user_id = ?
+    ORDER BY p.success_rate DESC
+");
+$cat_stmt->bind_param("i", $user_id);
+$cat_stmt->execute();
+$cat_result = $cat_stmt->get_result();
+$cat_labels = [];
+$cat_values = [];
+while ($row = $cat_result->fetch_assoc()) {
+    $cat_labels[] = $row['nom'];
+    $cat_values[] = round($row['success_rate'], 1);
+}
 
-  // ── Historique des 5 dernières parties ──────────────────────
-  $hist_stmt = $conn->prepare("
-      SELECT score, status, game_mode, time_played,
-            correct_answers, total_questions, started_at
-      FROM game_sessions
-      WHERE user_id = ? AND status != 'active'
-      ORDER BY started_at DESC
-      LIMIT 5
-  ");
-  $hist_stmt->bind_param("i", $user_id);
-  $hist_stmt->execute();
-  $history = $hist_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+// ── Historique des 5 dernières parties ──────────────────────
+$hist_stmt = $conn->prepare("
+    SELECT score, status, game_mode, time_played,
+           correct_answers, total_questions, started_at
+    FROM game_sessions
+    WHERE user_id = ? AND status != 'active'
+    ORDER BY started_at DESC
+    LIMIT 5
+");
+$hist_stmt->bind_param("i", $user_id);
+$hist_stmt->execute();
+$history = $hist_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-  // ── Graphe de performance — 7 derniers jours ─────────────────
-  $perf_week = $conn->prepare("
-      SELECT DATE(started_at) AS jour,
-            COUNT(*) AS parties,
-            SUM(correct_answers) AS bonnes,
-            MAX(score) AS meilleur_score
-      FROM game_sessions
-      WHERE user_id = ? AND status = 'finished'
-        AND started_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-      GROUP BY DATE(started_at)
-      ORDER BY jour ASC
-  ");
-  $perf_week->bind_param("i", $user_id);
-  $perf_week->execute();
-  $perf_week_rows = $perf_week->get_result()->fetch_all(MYSQLI_ASSOC);
+// ── Graphe de performance — 7 derniers jours ─────────────────
+$perf_week = $conn->prepare("
+    SELECT DATE(started_at) AS jour,
+           COUNT(*) AS parties,
+           SUM(correct_answers) AS bonnes,
+           MAX(score) AS meilleur_score
+    FROM game_sessions
+    WHERE user_id = ? AND status = 'finished'
+      AND started_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    GROUP BY DATE(started_at)
+    ORDER BY jour ASC
+");
+$perf_week->bind_param("i", $user_id);
+$perf_week->execute();
+$perf_week_rows = $perf_week->get_result()->fetch_all(MYSQLI_ASSOC);
 
-  // ── Graphe de performance — 4 semaines ───────────────────────
-  $perf_month = $conn->prepare("
-      SELECT WEEK(started_at) AS semaine,
-            MIN(DATE(started_at)) AS debut,
-            COUNT(*) AS parties,
-            SUM(correct_answers) AS bonnes,
-            MAX(score) AS meilleur_score
-      FROM game_sessions
-      WHERE user_id = ? AND status = 'finished'
-        AND started_at >= DATE_SUB(NOW(), INTERVAL 4 WEEK)
-      GROUP BY WEEK(started_at)
-      ORDER BY semaine ASC
-  ");
-  $perf_month->bind_param("i", $user_id);
-  $perf_month->execute();
-  $perf_month_rows = $perf_month->get_result()->fetch_all(MYSQLI_ASSOC);
+// ── Graphe de performance — 4 semaines ───────────────────────
+$perf_month = $conn->prepare("
+    SELECT WEEK(started_at) AS semaine,
+           MIN(DATE(started_at)) AS debut,
+           COUNT(*) AS parties,
+           SUM(correct_answers) AS bonnes,
+           MAX(score) AS meilleur_score
+    FROM game_sessions
+    WHERE user_id = ? AND status = 'finished'
+      AND started_at >= DATE_SUB(NOW(), INTERVAL 4 WEEK)
+    GROUP BY WEEK(started_at)
+    ORDER BY semaine ASC
+");
+$perf_month->bind_param("i", $user_id);
+$perf_month->execute();
+$perf_month_rows = $perf_month->get_result()->fetch_all(MYSQLI_ASSOC);
 
-  // ── Graphe de performance — 6 derniers mois ──────────────────
-  $perf_season = $conn->prepare("
-      SELECT DATE_FORMAT(started_at, '%Y-%m') AS mois,
-            COUNT(*) AS parties,
-            SUM(correct_answers) AS bonnes,
-            MAX(score) AS meilleur_score
-      FROM game_sessions
-      WHERE user_id = ? AND status = 'finished'
-        AND started_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-      GROUP BY mois
-      ORDER BY mois ASC
-  ");
-  $perf_season->bind_param("i", $user_id);
-  $perf_season->execute();
-  $perf_season_rows = $perf_season->get_result()->fetch_all(MYSQLI_ASSOC);
+// ── Graphe de performance — 6 derniers mois ──────────────────
+$perf_season = $conn->prepare("
+    SELECT DATE_FORMAT(started_at, '%Y-%m') AS mois,
+           COUNT(*) AS parties,
+           SUM(correct_answers) AS bonnes,
+           MAX(score) AS meilleur_score
+    FROM game_sessions
+    WHERE user_id = ? AND status = 'finished'
+      AND started_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY mois
+    ORDER BY mois ASC
+");
+$perf_season->bind_param("i", $user_id);
+$perf_season->execute();
+$perf_season_rows = $perf_season->get_result()->fetch_all(MYSQLI_ASSOC);
 
-  // Formatage pour Chart.js
-  $mois_fr = ['01'=>'Jan','02'=>'Fév','03'=>'Mar','04'=>'Avr','05'=>'Mai','06'=>'Jun','07'=>'Jul','08'=>'Aoû','09'=>'Sep','10'=>'Oct','11'=>'Nov','12'=>'Déc'];
-  $jours_fr = ['Monday'=>'Lun','Tuesday'=>'Mar','Wednesday'=>'Mer','Thursday'=>'Jeu','Friday'=>'Ven','Saturday'=>'Sam','Sunday'=>'Dim'];
+// Formatage pour Chart.js
+$mois_fr = ['01'=>'Jan','02'=>'Fév','03'=>'Mar','04'=>'Avr','05'=>'Mai','06'=>'Jun','07'=>'Jul','08'=>'Aoû','09'=>'Sep','10'=>'Oct','11'=>'Nov','12'=>'Déc'];
+$jours_fr = ['Monday'=>'Lun','Tuesday'=>'Mar','Wednesday'=>'Mer','Thursday'=>'Jeu','Friday'=>'Ven','Saturday'=>'Sam','Sunday'=>'Dim'];
 
-  $chart_week = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
-  foreach ($perf_week_rows as $r) {
-      $chart_week['labels'][]  = $jours_fr[date('l', strtotime($r['jour']))] ?? $r['jour'];
-      $chart_week['parties'][] = (int)$r['parties'];
-      $chart_week['scores'][]  = (int)$r['meilleur_score'];
-  }
+$chart_week = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
+foreach ($perf_week_rows as $r) {
+    $chart_week['labels'][]  = $jours_fr[date('l', strtotime($r['jour']))] ?? $r['jour'];
+    $chart_week['parties'][] = (int)$r['parties'];
+    $chart_week['scores'][]  = (int)$r['meilleur_score'];
+}
 
-  $chart_month = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
-  foreach ($perf_month_rows as $r) {
-      $chart_month['labels'][]  = 'S' . date('W', strtotime($r['debut']));
-      $chart_month['parties'][] = (int)$r['parties'];
-      $chart_month['scores'][]  = (int)$r['meilleur_score'];
-  }
+$chart_month = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
+foreach ($perf_month_rows as $r) {
+    $chart_month['labels'][]  = 'S' . date('W', strtotime($r['debut']));
+    $chart_month['parties'][] = (int)$r['parties'];
+    $chart_month['scores'][]  = (int)$r['meilleur_score'];
+}
 
-  $chart_season = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
-  foreach ($perf_season_rows as $r) {
-      $parts = explode('-', $r['mois']);
-      $chart_season['labels'][]  = $mois_fr[$parts[1]] ?? $r['mois'];
-      $chart_season['parties'][] = (int)$r['parties'];
-      $chart_season['scores'][]  = (int)$r['meilleur_score'];
-  }
+$chart_season = ['labels'=>[], 'parties'=>[], 'scores'=>[]];
+foreach ($perf_season_rows as $r) {
+    $parts = explode('-', $r['mois']);
+    $chart_season['labels'][]  = $mois_fr[$parts[1]] ?? $r['mois'];
+    $chart_season['parties'][] = (int)$r['parties'];
+    $chart_season['scores'][]  = (int)$r['meilleur_score'];
+}
 
-  // ── Top 10 leaderboard ───────────────────────────────────────
-  $lb_stmt = $conn->query("SELECT id, username, score_total, `rank` FROM leaderboard LIMIT 10");
-  $leaderboard = $lb_stmt->fetch_all(MYSQLI_ASSOC);
+// ── Top 10 leaderboard ───────────────────────────────────────
+$lb_stmt = $conn->query("SELECT id, username, score_total, `rank` FROM leaderboard LIMIT 10");
+$leaderboard = $lb_stmt->fetch_all(MYSQLI_ASSOC);
 
-  // ── Messages flash ──────────────────────────────────────────
-  $flash_error   = $_SESSION['error']   ?? null; unset($_SESSION['error']);
-  $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
-  ?>
+// ── Messages flash ──────────────────────────────────────────
+$flash_error   = $_SESSION['error']   ?? null; unset($_SESSION['error']);
+$flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
