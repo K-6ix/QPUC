@@ -30,7 +30,10 @@ $winrate      = $stats['winrate']        ?? 0;
 $avg_time     = $stats['average_time_answer'] ?? 0;
 $best_streak  = $stats['best_streak']    ?? 0;
 $total_time   = $stats['total_time_played'] ?? 0;
+<<<<<<< HEAD
 $user_elo     = $stats['elo']            ?? 1200;
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 
 // ── Rang global ─────────────────────────────────────────────
 $rank_stmt = $conn->prepare("SELECT `rank` FROM leaderboard WHERE id = ?");
@@ -146,7 +149,11 @@ foreach ($perf_season_rows as $r) {
 }
 
 // ── Top 10 leaderboard ───────────────────────────────────────
+<<<<<<< HEAD
 $lb_stmt = $conn->query("SELECT id, username, score_total, elo, `rank` FROM leaderboard LIMIT 10");
+=======
+$lb_stmt = $conn->query("SELECT id, username, score_total, `rank` FROM leaderboard LIMIT 10");
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 $leaderboard = $lb_stmt->fetch_all(MYSQLI_ASSOC);
 
 // ── Messages flash ──────────────────────────────────────────
@@ -1041,7 +1048,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Dashboard
     </a>
+<<<<<<< HEAD
     <a class="nav-item" href="game.php">
+=======
+    <a class="nav-item" href="game.html">
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       Jouer
       <span class="nav-badge">LIVE</span>
@@ -1104,7 +1115,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
     <div class="topbar-right">
       <div class="notif-dot"></div>
       <a href="index.php" class="topbar-btn">Home</a>
+<<<<<<< HEAD
       <a href="game.php" class="topbar-btn primary">⚔ Jouer</a>
+=======
+      <a href="game.html" class="topbar-btn primary">⚔ Jouer</a>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     </div>
   </div>
 
@@ -1121,7 +1136,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <div class="rank-badge">
         <div class="rank-badge-label">Rang Global</div>
         <div class="rank-badge-value">#<?= $global_rank ?></div>
+<<<<<<< HEAD
         <div class="rank-badge-sub">ELO : <?= number_format($user_elo) ?></div>
+=======
+        <div class="rank-badge-sub">Meilleur score : <?= number_format($best_score) ?></div>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
       </div>
     </div>
 
@@ -1149,9 +1168,15 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       </div>
       <div class="stat-card">
         <div class="stat-icon">💎</div>
+<<<<<<< HEAD
         <div class="stat-label">ELO</div>
         <div class="stat-value" id="cnt-elo"><?= number_format($user_elo) ?></div>
         <div class="stat-change neutral">Meilleur score : <?= number_format($best_score) ?></div>
+=======
+        <div class="stat-label">Meilleur Score</div>
+        <div class="stat-value" id="cnt-elo"><?= number_format($best_score) ?></div>
+        <div class="stat-change neutral">Temps total : <?= gmdate('H\hi', $total_time) ?></div>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
       </div>
     </div>
 
@@ -1222,7 +1247,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
             <?php if (empty($history)): ?>
               <div style="padding:32px;text-align:center;color:var(--text3);font-size:0.82rem;letter-spacing:1px;">
                 Aucune partie jouée pour l'instant.<br>
+<<<<<<< HEAD
                 <a href="game.php" style="color:var(--g400);text-decoration:none;margin-top:8px;display:inline-block;">⚔ Lancer une partie</a>
+=======
+                <a href="game.html" style="color:var(--g400);text-decoration:none;margin-top:8px;display:inline-block;">⚔ Lancer une partie</a>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
               </div>
             <?php else: ?>
               <?php foreach ($history as $match):
@@ -1241,7 +1270,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
               <div class="match-row">
                 <div class="match-result <?= $result_class ?>"><?= $result_label ?></div>
                 <div class="match-info">
+<<<<<<< HEAD
                   <div class="match-vs"><?= $mode ?> · <?= $match['difficulty'] ?? '—' ?></div>
+=======
+                  <div class="match-vs"><?= $mode ?> · <?= $match['difficulty'] ?></div>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                   <div class="match-map"><?= $date ?> · <?= $duration ?></div>
                 </div>
                 <div class="match-score"><?= number_format($match['score']) ?> pts</div>
@@ -1329,7 +1362,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
               <?= htmlspecialchars($lb['username']) ?>
               <?php if ($is_me): ?><span style="color:var(--text3);font-size:0.65rem;"> (vous)</span><?php endif; ?>
             </div>
+<<<<<<< HEAD
             <div class="leader-pts"><?= number_format($lb['elo'] ?? 1200) ?> <small style="color:var(--text3);font-size:0.6rem;">ELO</small></div>
+=======
+            <div class="leader-pts"><?= number_format($lb['score_total']) ?></div>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
           </div>
           <?php endforeach; ?>
 
@@ -1338,7 +1375,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
             <div class="leader-rank other"><?= $global_rank ?></div>
             <div class="leader-avatar" style="background:linear-gradient(135deg,var(--g700),var(--g400));color:#000;"><?= strtoupper(substr($user['username'], 0, 2)) ?></div>
             <div class="leader-name leader-self"><?= htmlspecialchars($user['username']) ?> <span style="color:var(--text3);font-size:0.65rem;">(vous)</span></div>
+<<<<<<< HEAD
             <div class="leader-pts"><?= number_format($user_elo) ?> <small style="color:var(--text3);font-size:0.6rem;">ELO</small></div>
+=======
+            <div class="leader-pts"><?= number_format($best_score) ?></div>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
           </div>
           <?php endif; ?>
         </div>
@@ -1382,7 +1423,11 @@ function animCount(el, target, duration, decimals=0, suffix='') {
 setTimeout(()=>{
   animCount(document.getElementById('cnt-games'), <?= $total_games ?>, 1200);
   animCount(document.getElementById('cnt-wins'),  <?= $victories ?>, 1200);
+<<<<<<< HEAD
   animCount(document.getElementById('cnt-elo'),   <?= $user_elo ?>, 1400);
+=======
+  animCount(document.getElementById('cnt-elo'),   <?= $best_score ?>, 1400);
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 },300);
 
 /* ── PROGRESS BARS ── */
@@ -1467,7 +1512,11 @@ const perfChart = new Chart(perfCtx, {
         yAxisID:'y'
       },
       {
+<<<<<<< HEAD
         label:'ELO',
+=======
+        label:'Meilleur score',
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         data: perfData.week.elo,
         borderColor: '#5599dd',
         borderWidth: 2,
@@ -1501,7 +1550,11 @@ const perfChart = new Chart(perfCtx, {
           title: items => items[0].label,
           label: item => item.datasetIndex===0
             ? ` Parties : ${item.raw}`
+<<<<<<< HEAD
             : ` ELO : ${item.raw.toLocaleString()}`
+=======
+            : ` Meilleur score : ${item.raw.toLocaleString()} pts`
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         }
       }
     },

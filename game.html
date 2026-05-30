@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<<<<<<< HEAD
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Questions pour un Champion</title>
@@ -638,3 +639,1270 @@
     </script>
 </body>
 </html>
+=======
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Question pour un Champion — Jeu</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --gold:       #d4af37;
+    --gold-light: #fcf6ba;
+    --gold-dark:  #8a6e2f;
+    --gold-dim:   rgba(212,175,55,0.15);
+    --bg:         #060606;
+    --bg2:        #0d0d0d;
+    --bg3:        #141414;
+    --surface:    #1a1a1a;
+    --border:     rgba(212,175,55,0.2);
+    --text1:      #f0e8cc;
+    --text2:      rgba(240,232,204,0.6);
+    --text3:      rgba(240,232,204,0.35);
+    --success:    #4caf78;
+    --danger:     #e05555;
+    --r:          10px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body {
+    font-family: 'Raleway', sans-serif;
+    background: var(--bg);
+    color: var(--text1);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ── BACKGROUND EFFECT ── */
+body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background:
+        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(212,175,55,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 80%, rgba(212,175,55,0.03) 0%, transparent 60%);
+    pointer-events:none;
+    z-index:0;
+}
+
+/* ── LAYOUT ── */
+.game-wrap {
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 32px;
+    border-bottom:1px solid var(--border);
+    background:rgba(6,6,6,0.95);
+    backdrop-filter:blur(10px);
+    position:sticky;
+    top:0;
+    z-index:100;
+}
+.topbar-logo {
+    font-family:'Cinzel Decorative', serif;
+    font-size:14px;
+    color:var(--gold);
+    letter-spacing:2px;
+    text-decoration:none;
+}
+.topbar-meta {
+    display:flex;
+    align-items:center;
+    gap:24px;
+}
+.meta-item {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+}
+.meta-label {
+    font-size:9px;
+    letter-spacing:2px;
+    color:var(--text3);
+    text-transform:uppercase;
+}
+.meta-value {
+    font-family:'Cinzel', serif;
+    font-size:15px;
+    color:var(--gold);
+    font-weight:600;
+}
+.topbar-score {
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:2px;
+}
+.score-label { font-size:9px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; }
+.score-value {
+    font-family:'Cinzel', serif;
+    font-size:20px;
+    color:var(--gold);
+    font-weight:700;
+    transition:all .3s;
+}
+.score-value.bump {
+    transform:scale(1.3);
+    color:var(--gold-light);
+}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap {
+    height:3px;
+    background:var(--bg3);
+    position:relative;
+    overflow:hidden;
+}
+.progress-fill {
+    height:100%;
+    background:linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
+    transition:width .6s ease;
+    width:0%;
+}
+.progress-glow {
+    position:absolute;
+    right:0;
+    top:-2px;
+    width:20px;
+    height:7px;
+    background:var(--gold-light);
+    filter:blur(4px);
+    opacity:.8;
+}
+
+/* ── MAIN CONTENT ── */
+.game-content {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+    gap:32px;
+    max-width:820px;
+    margin:0 auto;
+    width:100%;
+}
+
+/* ── QUESTION NUMBER + CATEGORY ── */
+.q-meta {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+}
+.q-number {
+    font-size:11px;
+    letter-spacing:3px;
+    color:var(--text3);
+    text-transform:uppercase;
+}
+.q-category {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 14px;
+    border:1px solid var(--border);
+    border-radius:20px;
+    font-size:11px;
+    letter-spacing:1px;
+    color:var(--text2);
+    background:var(--gold-dim);
+}
+.q-category-icon { font-size:14px; }
+
+/* ── TIMER ── */
+.timer-wrap {
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+}
+.timer-bar-bg {
+    width:100%;
+    height:6px;
+    background:var(--surface);
+    border-radius:3px;
+    overflow:hidden;
+    position:relative;
+}
+.timer-bar-fill {
+    height:100%;
+    background:linear-gradient(90deg, var(--gold-dark), var(--gold));
+    border-radius:3px;
+    transition:width 1s linear, background .5s;
+    width:100%;
+    transform-origin:left;
+}
+.timer-bar-fill.danger {
+    background:linear-gradient(90deg, #a32d2d, var(--danger));
+    animation:pulse-danger .5s ease-in-out infinite alternate;
+}
+@keyframes pulse-danger {
+    from { opacity:.8; }
+    to   { opacity:1; }
+}
+.timer-number {
+    position:absolute;
+    right:0;
+    top:-22px;
+    font-family:'Cinzel', serif;
+    font-size:13px;
+    color:var(--gold);
+    transition:color .3s;
+    min-width:28px;
+    text-align:right;
+}
+.timer-number.danger { color:var(--danger); }
+
+/* ── QUESTION CARD ── */
+.question-card {
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:36px 40px;
+    position:relative;
+    overflow:hidden;
+}
+.question-card::before {
+    content:'';
+    position:absolute;
+    top:0;left:0;right:0;
+    height:2px;
+    background:linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.question-text {
+    font-family:'Cinzel', serif;
+    font-size:20px;
+    font-weight:400;
+    line-height:1.6;
+    color:var(--text1);
+    text-align:center;
+}
+
+/* ── OPTIONS ── */
+.options-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    width:100%;
+}
+.option-btn {
+    background:var(--bg3);
+    border:1px solid var(--border);
+    border-radius:var(--r);
+    padding:18px 24px;
+    cursor:pointer;
+    transition:all .2s;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    text-align:left;
+    color:var(--text1);
+    font-family:'Raleway', sans-serif;
+    font-size:14px;
+    font-weight:500;
+    letter-spacing:.3px;
+    position:relative;
+    overflow:hidden;
+}
+.option-btn::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    background:var(--gold-dim);
+    opacity:0;
+    transition:opacity .2s;
+}
+.option-btn:hover:not(:disabled)::before { opacity:1; }
+.option-btn:hover:not(:disabled) {
+    border-color:var(--gold);
+    transform:translateY(-2px);
+}
+.option-btn:active:not(:disabled) { transform:translateY(0); }
+
+.option-letter {
+    min-width:32px;
+    height:32px;
+    border-radius:50%;
+    border:1.5px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Cinzel', serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--gold);
+    transition:all .2s;
+    flex-shrink:0;
+}
+.option-btn:hover:not(:disabled) .option-letter {
+    background:var(--gold);
+    color:var(--bg);
+    border-color:var(--gold);
+}
+
+/* ── OPTION STATES ── */
+.option-btn.correct {
+    border-color:var(--success) !important;
+    background:rgba(76,175,120,0.1) !important;
+}
+.option-btn.correct .option-letter {
+    background:var(--success);
+    border-color:var(--success);
+    color:#fff;
+}
+.option-btn.wrong {
+    border-color:var(--danger) !important;
+    background:rgba(224,85,85,0.1) !important;
+}
+.option-btn.wrong .option-letter {
+    background:var(--danger);
+    border-color:var(--danger);
+    color:#fff;
+}
+.option-btn.reveal {
+    border-color:rgba(76,175,120,0.4) !important;
+}
+.option-btn:disabled { cursor:not-allowed; transform:none !important; }
+
+/* ── FEEDBACK BADGE ── */
+.feedback-badge {
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%) scale(0);
+    background:var(--bg);
+    border:2px solid var(--gold);
+    border-radius:16px;
+    padding:20px 40px;
+    text-align:center;
+    z-index:200;
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+    pointer-events:none;
+}
+.feedback-badge.show { transform:translate(-50%,-50%) scale(1); }
+.feedback-badge.correct-fb { border-color:var(--success); }
+.feedback-badge.wrong-fb   { border-color:var(--danger); }
+.feedback-icon { font-size:32px; margin-bottom:6px; }
+.feedback-text {
+    font-family:'Cinzel', serif;
+    font-size:18px;
+    color:var(--text1);
+    font-weight:600;
+}
+.feedback-pts {
+    font-size:13px;
+    color:var(--gold);
+    margin-top:4px;
+    font-weight:600;
+}
+
+/* ── STREAK BADGE ── */
+.streak-wrap {
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.streak-dot {
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:var(--border);
+    transition:all .3s;
+}
+.streak-dot.active {
+    background:var(--gold);
+    box-shadow:0 0 6px var(--gold);
+}
+
+/* ── DIFFICULTY BADGE ── */
+.diff-badge {
+    padding:3px 10px;
+    border-radius:20px;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+}
+.diff-badge.facile   { background:rgba(76,175,120,0.15); color:var(--success); border:1px solid rgba(76,175,120,0.3); }
+.diff-badge.moyen    { background:rgba(212,175,55,0.15); color:var(--gold); border:1px solid var(--border); }
+.diff-badge.difficile{ background:rgba(224,85,85,0.15); color:var(--danger); border:1px solid rgba(224,85,85,0.3); }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 32px;
+    border-top:1px solid var(--border);
+    background:rgba(6,6,6,0.95);
+}
+.hint-btn, .abandon-btn {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 20px;
+    border-radius:8px;
+    font-family:'Raleway', sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .2s;
+    letter-spacing:.5px;
+}
+.hint-btn {
+    background:var(--gold-dim);
+    border:1px solid var(--border);
+    color:var(--gold);
+}
+.hint-btn:hover { background:rgba(212,175,55,0.25); border-color:var(--gold); }
+.hint-btn:disabled { opacity:.4; cursor:not-allowed; }
+.abandon-btn {
+    background:transparent;
+    border:1px solid rgba(224,85,85,0.3);
+    color:rgba(224,85,85,0.7);
+}
+.abandon-btn:hover { background:rgba(224,85,85,0.1); border-color:var(--danger); color:var(--danger); }
+.hint-icon, .abandon-icon { font-size:16px; }
+
+/* ── HINT BOX ── */
+.hint-box {
+    width:100%;
+    background:var(--gold-dim);
+    border:1px solid var(--border);
+    border-radius:var(--r);
+    padding:14px 20px;
+    font-size:13px;
+    color:var(--text2);
+    display:none;
+    align-items:center;
+    gap:10px;
+}
+.hint-box.visible { display:flex; }
+.hint-box-icon { font-size:16px; color:var(--gold); }
+
+/* ── SCREEN : START ── */
+.screen {
+    position:fixed;
+    inset:0;
+    background:var(--bg);
+    z-index:500;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:32px;
+    padding:32px;
+    transition:opacity .5s, transform .5s;
+}
+.screen.hidden {
+    opacity:0;
+    pointer-events:none;
+    transform:scale(0.97);
+}
+
+.start-title {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(22px, 4vw, 36px);
+    color:var(--gold);
+    text-align:center;
+    letter-spacing:3px;
+    line-height:1.4;
+}
+.start-sub {
+    font-size:14px;
+    color:var(--text2);
+    text-align:center;
+    max-width:480px;
+    line-height:1.8;
+}
+
+/* Mode selector */
+.mode-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:14px;
+    width:100%;
+    max-width:600px;
+}
+.mode-card {
+    background:var(--bg3);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:20px 16px;
+    cursor:pointer;
+    text-align:center;
+    transition:all .2s;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+}
+.mode-card:hover, .mode-card.selected {
+    border-color:var(--gold);
+    background:var(--gold-dim);
+    transform:translateY(-3px);
+}
+.mode-icon { font-size:28px; }
+.mode-name {
+    font-family:'Cinzel', serif;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text1);
+    letter-spacing:1px;
+}
+.mode-desc {
+    font-size:11px;
+    color:var(--text3);
+    line-height:1.5;
+}
+
+/* Category selector */
+.cat-grid {
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    max-width:600px;
+}
+.cat-chip {
+    padding:8px 16px;
+    border-radius:20px;
+    border:1px solid var(--border);
+    background:var(--bg3);
+    cursor:pointer;
+    font-size:12px;
+    font-weight:600;
+    color:var(--text2);
+    transition:all .2s;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+.cat-chip:hover, .cat-chip.selected {
+    border-color:var(--gold);
+    color:var(--gold);
+    background:var(--gold-dim);
+}
+.cat-chip.all-cats { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+
+.start-btn {
+    padding:16px 48px;
+    background:linear-gradient(135deg, var(--gold-dark), var(--gold));
+    border:none;
+    border-radius:40px;
+    font-family:'Cinzel', serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--bg);
+    cursor:pointer;
+    letter-spacing:2px;
+    transition:all .3s;
+    box-shadow:0 0 30px rgba(212,175,55,0.3);
+}
+.start-btn:hover {
+    transform:translateY(-3px);
+    box-shadow:0 0 50px rgba(212,175,55,0.5);
+}
+
+.section-title {
+    font-size:10px;
+    letter-spacing:3px;
+    color:var(--text3);
+    text-transform:uppercase;
+    text-align:center;
+}
+
+/* ── SCREEN : END ── */
+.end-screen {
+    position:fixed;
+    inset:0;
+    background:var(--bg);
+    z-index:500;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:28px;
+    padding:32px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .5s;
+}
+.end-screen.visible {
+    opacity:1;
+    pointer-events:all;
+}
+.end-title {
+    font-family:'Cinzel Decorative', serif;
+    font-size:clamp(20px, 3vw, 30px);
+    color:var(--gold);
+    text-align:center;
+    letter-spacing:2px;
+}
+.end-score-big {
+    font-family:'Cinzel', serif;
+    font-size:clamp(48px, 8vw, 80px);
+    font-weight:700;
+    color:var(--gold);
+    line-height:1;
+}
+.end-score-label { font-size:12px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; }
+.end-stats {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+    width:100%;
+    max-width:480px;
+}
+.end-stat {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--r);
+    padding:16px;
+    text-align:center;
+}
+.end-stat-val {
+    font-family:'Cinzel', serif;
+    font-size:22px;
+    font-weight:700;
+    color:var(--gold);
+}
+.end-stat-label { font-size:10px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; margin-top:4px; }
+.end-btns { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+.end-btn-primary {
+    padding:14px 36px;
+    background:linear-gradient(135deg, var(--gold-dark), var(--gold));
+    border:none;
+    border-radius:40px;
+    font-family:'Cinzel', serif;
+    font-size:13px;
+    font-weight:700;
+    color:var(--bg);
+    cursor:pointer;
+    letter-spacing:2px;
+    transition:all .3s;
+}
+.end-btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 30px rgba(212,175,55,0.4); }
+.end-btn-secondary {
+    padding:14px 36px;
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:40px;
+    font-family:'Cinzel', serif;
+    font-size:13px;
+    color:var(--text2);
+    cursor:pointer;
+    letter-spacing:2px;
+    transition:all .2s;
+}
+.end-btn-secondary:hover { border-color:var(--gold); color:var(--gold); }
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px) {
+    .options-grid { grid-template-columns:1fr; }
+    .topbar { padding:12px 16px; }
+    .topbar-meta { gap:12px; }
+    .question-card { padding:24px 20px; }
+    .question-text { font-size:16px; }
+    .bottom-bar { padding:12px 16px; }
+    .game-content { padding:24px 12px; }
+}
+
+/* ── PARTICLES ── */
+.particle {
+    position:fixed;
+    pointer-events:none;
+    border-radius:50%;
+    animation:particle-fly .8s ease-out forwards;
+    z-index:300;
+}
+@keyframes particle-fly {
+    from { transform:translate(0,0) scale(1); opacity:1; }
+    to   { transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ START SCREEN ═══ -->
+<div class="screen" id="start-screen">
+    <div class="start-title">Question pour<br>un Champion</div>
+    <p class="start-sub">Testez vos connaissances, battez des records et grimpez dans le classement mondial.</p>
+
+    <div class="section-title">Choisissez un mode</div>
+    <div class="mode-grid">
+        <div class="mode-card selected" data-mode="solo" onclick="selectMode(this)">
+            <div class="mode-icon">⚔️</div>
+            <div class="mode-name">Solo</div>
+            <div class="mode-desc">10 questions, votre rythme</div>
+        </div>
+        <div class="mode-card" data-mode="rapidite" onclick="selectMode(this)">
+            <div class="mode-icon">⚡</div>
+            <div class="mode-name">Rapidité</div>
+            <div class="mode-desc">Bonus vitesse × temps</div>
+        </div>
+        <div class="mode-card" data-mode="tournoi" onclick="selectMode(this)">
+            <div class="mode-icon">🏆</div>
+            <div class="mode-name">Tournoi</div>
+            <div class="mode-desc">Éliminations progressives</div>
+        </div>
+        <div class="mode-card" data-mode="buzz" onclick="selectMode(this)">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-name">Buzz</div>
+            <div class="mode-desc">Multi-joueurs temps réel</div>
+        </div>
+    </div>
+
+    <div class="section-title">Catégorie</div>
+    <div class="cat-grid">
+        <div class="cat-chip all-cats selected" data-cat="all" onclick="selectCat(this)">🎲 Toutes</div>
+        <div class="cat-chip" data-cat="sciences" onclick="selectCat(this)">🔬 Sciences</div>
+        <div class="cat-chip" data-cat="informatique" onclick="selectCat(this)">💻 Informatique</div>
+        <div class="cat-chip" data-cat="histoire" onclick="selectCat(this)">🏛️ Histoire</div>
+        <div class="cat-chip" data-cat="geographie" onclick="selectCat(this)">🌍 Géographie</div>
+        <div class="cat-chip" data-cat="mathematiques" onclick="selectCat(this)">📐 Maths</div>
+        <div class="cat-chip" data-cat="culture_generale" onclick="selectCat(this)">🧠 Culture</div>
+        <div class="cat-chip" data-cat="sport" onclick="selectCat(this)">⚽ Sport</div>
+        <div class="cat-chip" data-cat="art_litterature" onclick="selectCat(this)">🎨 Art</div>
+    </div>
+
+    <button class="start-btn" onclick="startGame()">COMMENCER ▶</button>
+</div>
+
+<!-- ═══ GAME WRAP ═══ -->
+<div class="game-wrap" id="game-wrap" style="display:none;">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <a href="dashboard.php" class="topbar-logo">QPC</a>
+        <div class="topbar-meta">
+            <div class="meta-item">
+                <span class="meta-label">Question</span>
+                <span class="meta-value" id="q-counter">1/10</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Mode</span>
+                <span class="meta-value" id="mode-label">Solo</span>
+            </div>
+            <div class="meta-item">
+                <div class="streak-wrap" id="streak-dots">
+                    <div class="streak-dot"></div>
+                    <div class="streak-dot"></div>
+                    <div class="streak-dot"></div>
+                    <div class="streak-dot"></div>
+                    <div class="streak-dot"></div>
+                </div>
+            </div>
+        </div>
+        <div class="topbar-score">
+            <span class="score-label">Score</span>
+            <span class="score-value" id="score-display">0</span>
+        </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-wrap">
+        <div class="progress-fill" id="progress-fill"></div>
+        <div class="progress-glow"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="game-content">
+
+        <!-- Q META -->
+        <div class="q-meta">
+            <span class="q-number" id="q-number">Question 1 sur 10</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="q-category">
+                    <span class="q-category-icon" id="cat-icon">🎲</span>
+                    <span id="cat-label">Culture</span>
+                </span>
+                <span class="diff-badge" id="diff-badge">—</span>
+            </div>
+        </div>
+
+        <!-- TIMER -->
+        <div class="timer-wrap">
+            <span class="timer-number" id="timer-num">15</span>
+            <div class="timer-bar-bg" style="margin-top:28px;">
+                <div class="timer-bar-fill" id="timer-fill"></div>
+            </div>
+        </div>
+
+        <!-- QUESTION -->
+        <div class="question-card">
+            <p class="question-text" id="question-text">Chargement de la question…</p>
+        </div>
+
+        <!-- HINT BOX -->
+        <div class="hint-box" id="hint-box">
+            <span class="hint-box-icon">💡</span>
+            <span id="hint-text">Un indice apparaîtra ici.</span>
+        </div>
+
+        <!-- OPTIONS -->
+        <div class="options-grid" id="options-grid"></div>
+
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="bottom-bar">
+        <button class="hint-btn" id="hint-btn" onclick="showHint()">
+            <span class="hint-icon">💡</span> Indice (−50 pts)
+        </button>
+        <button class="abandon-btn" onclick="confirmAbandon()">
+            <span class="abandon-icon">✕</span> Abandonner
+        </button>
+    </div>
+
+</div>
+
+<!-- ═══ END SCREEN ═══ -->
+<div class="end-screen" id="end-screen">
+    <div class="end-title" id="end-title">Partie terminée !</div>
+    <div>
+        <div class="end-score-big" id="end-score">0</div>
+        <div class="end-score-label">Points</div>
+    </div>
+    <div class="end-stats">
+        <div class="end-stat">
+            <div class="end-stat-val" id="end-correct">0</div>
+            <div class="end-stat-label">Bonnes réponses</div>
+        </div>
+        <div class="end-stat">
+            <div class="end-stat-val" id="end-accuracy">0%</div>
+            <div class="end-stat-label">Précision</div>
+        </div>
+        <div class="end-stat">
+            <div class="end-stat-val" id="end-time">0s</div>
+            <div class="end-stat-label">Temps moyen</div>
+        </div>
+    </div>
+    <div class="end-btns">
+        <button class="end-btn-primary" onclick="location.reload()">▶ Rejouer</button>
+        <button class="end-btn-secondary" onclick="location.href='dashboard.php'">Dashboard</button>
+    </div>
+</div>
+
+<!-- FEEDBACK BADGE -->
+<div class="feedback-badge" id="feedback-badge">
+    <div class="feedback-icon" id="feedback-icon">✓</div>
+    <div class="feedback-text" id="feedback-text">Bonne réponse !</div>
+    <div class="feedback-pts" id="feedback-pts">+100 pts</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// DONNÉES (sera remplacé par PHP + JSON)
+// ══════════════════════════════════════════════════
+const QUESTIONS_DATA = {
+    sciences: {
+        label:'Sciences & Nature', icon:'🔬', category_id:3,
+        questions:[
+            {id:'sci_001',question:"Quel est le symbole chimique de l'or ?",options:["Au","Ag","Fe","Cu"],answer:"Au",difficulty:"facile",points:100,time:15},
+            {id:'sci_002',question:"Combien de chromosomes possède une cellule humaine saine ?",options:["23","46","48","44"],answer:"46",difficulty:"moyen",points:200,time:20},
+            {id:'sci_003',question:"Quelle planète est surnommée la 'planète rouge' ?",options:["Vénus","Jupiter","Mars","Mercure"],answer:"Mars",difficulty:"facile",points:100,time:15},
+            {id:'sci_004',question:"Quelle est la formule chimique de l'eau ?",options:["H2O2","HO","H2O","H3O"],answer:"H2O",difficulty:"facile",points:100,time:15},
+            {id:'sci_005',question:"Quel gaz est principalement responsable de l'effet de serre ?",options:["Oxygène","Azote","Dioxyde de carbone","Hydrogène"],answer:"Dioxyde de carbone",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    informatique: {
+        label:'Informatique & Technologie', icon:'💻', category_id:6,
+        questions:[
+            {id:'info_001',question:"Quel langage est principalement utilisé pour le style des pages web ?",options:["HTML","CSS","JavaScript","PHP"],answer:"CSS",difficulty:"facile",points:100,time:15},
+            {id:'info_002',question:"Que signifie l'acronyme 'HTTP' ?",options:["HyperText Transfer Protocol","High Tech Transfer Program","HyperText Transmission Process","Hyper Transfer Technology Protocol"],answer:"HyperText Transfer Protocol",difficulty:"facile",points:100,time:15},
+            {id:'info_007',question:"Qui est le fondateur de Microsoft ?",options:["Steve Jobs","Mark Zuckerberg","Bill Gates","Elon Musk"],answer:"Bill Gates",difficulty:"facile",points:100,time:15},
+            {id:'info_010',question:"Quelle structure de données fonctionne en mode LIFO ?",options:["File","Pile","Liste","Arbre"],answer:"Pile",difficulty:"moyen",points:200,time:20},
+            {id:'info_016',question:"Qu'est-ce que Git ?",options:["Un langage de programmation","Un système de gestion de versions","Un serveur web","Une base de données"],answer:"Un système de gestion de versions",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    histoire: {
+        label:'Histoire & Civilisations', icon:'🏛️', category_id:1,
+        questions:[
+            {id:'hist_001',question:"En quelle année a eu lieu la Révolution française ?",options:["1776","1789","1804","1815"],answer:"1789",difficulty:"facile",points:100,time:15},
+            {id:'hist_002',question:"Qui était le premier président des États-Unis ?",options:["Abraham Lincoln","Thomas Jefferson","George Washington","John Adams"],answer:"George Washington",difficulty:"facile",points:100,time:15},
+            {id:'hist_004',question:"En quelle année s'est terminée la Seconde Guerre mondiale ?",options:["1943","1944","1945","1946"],answer:"1945",difficulty:"facile",points:100,time:15},
+            {id:'hist_009',question:"En quelle année le Maroc a-t-il obtenu son indépendance ?",options:["1954","1956","1958","1960"],answer:"1956",difficulty:"facile",points:100,time:15},
+            {id:'hist_017',question:"En quelle année Neil Armstrong a-t-il marché sur la Lune ?",options:["1967","1968","1969","1971"],answer:"1969",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    geographie: {
+        label:'Géographie & Pays', icon:'🌍', category_id:2,
+        questions:[
+            {id:'geo_001',question:"Quelle est la capitale du Maroc ?",options:["Casablanca","Marrakech","Fès","Rabat"],answer:"Rabat",difficulty:"facile",points:100,time:15},
+            {id:'geo_002',question:"Quel est le plus grand pays du monde en superficie ?",options:["Canada","Chine","États-Unis","Russie"],answer:"Russie",difficulty:"facile",points:100,time:15},
+            {id:'geo_005',question:"Quelle est la capitale de la France ?",options:["Lyon","Marseille","Paris","Toulouse"],answer:"Paris",difficulty:"facile",points:100,time:15},
+            {id:'geo_006',question:"Quel est le plus haut sommet du monde ?",options:["K2","Mont Blanc","Mont Everest","Kilimandjaro"],answer:"Mont Everest",difficulty:"facile",points:100,time:15},
+            {id:'geo_009',question:"Quel détroit sépare l'Espagne du Maroc ?",options:["Détroit de Messine","Détroit de Gibraltar","Détroit de Malacca","Détroit de Bosphore"],answer:"Détroit de Gibraltar",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    mathematiques: {
+        label:'Mathématiques', icon:'📐', category_id:9,
+        questions:[
+            {id:'math_001',question:"Combien font 12 × 12 ?",options:["132","144","124","148"],answer:"144",difficulty:"facile",points:100,time:15},
+            {id:'math_003',question:"Quelle est la valeur approchée de π (Pi) ?",options:["3.12","3.14","3.16","3.18"],answer:"3.14",difficulty:"facile",points:100,time:15},
+            {id:'math_006',question:"Quel est le nombre premier suivant 13 ?",options:["15","16","17","19"],answer:"17",difficulty:"facile",points:100,time:15},
+            {id:'math_015',question:"Dans un triangle rectangle, si les deux côtés sont 3 et 4, quelle est l'hypoténuse ?",options:["5","6","7","8"],answer:"5",difficulty:"facile",points:100,time:15},
+            {id:'math_019',question:"Quelle est la somme des angles intérieurs d'un triangle ?",options:["90°","180°","270°","360°"],answer:"180°",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    culture_generale: {
+        label:'Culture Générale', icon:'🧠', category_id:5,
+        questions:[
+            {id:'cg_001',question:"Combien de couleurs y a-t-il dans un arc-en-ciel ?",options:["5","6","7","8"],answer:"7",difficulty:"facile",points:100,time:15},
+            {id:'cg_003',question:"Combien de secondes y a-t-il dans une heure ?",options:["3000","3200","3600","4000"],answer:"3600",difficulty:"facile",points:100,time:15},
+            {id:'cg_007',question:"Quel est le symbole monétaire de l'euro ?",options:["£","¥","€","$"],answer:"€",difficulty:"facile",points:100,time:15},
+            {id:'cg_009',question:"Qui a peint la Joconde ?",options:["Michel-Ange","Rafael","Léonard de Vinci","Botticelli"],answer:"Léonard de Vinci",difficulty:"facile",points:100,time:15},
+            {id:'cg_018',question:"Quelle est la monnaie officielle du Maroc ?",options:["Dinar","Dirham","Franc","Riyal"],answer:"Dirham",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    sport: {
+        label:'Sport & Champions', icon:'⚽', category_id:4,
+        questions:[
+            {id:'sport_002',question:"Quel pays a remporté la Coupe du monde 2022 au Qatar ?",options:["France","Argentine","Brésil","Angleterre"],answer:"Argentine",difficulty:"facile",points:100,time:15},
+            {id:'sport_003',question:"Quel sport se joue à Wimbledon ?",options:["Golf","Tennis","Cricket","Polo"],answer:"Tennis",difficulty:"facile",points:100,time:15},
+            {id:'sport_008',question:"Quel club espagnol est surnommé 'les Merengues' ?",options:["FC Barcelone","Atlético de Madrid","Real Madrid","Séville FC"],answer:"Real Madrid",difficulty:"facile",points:100,time:15},
+            {id:'sport_014',question:"Quelle équipe nationale est surnommée 'les Lions de l'Atlas' ?",options:["Algérie","Tunisie","Sénégal","Maroc"],answer:"Maroc",difficulty:"facile",points:100,time:15},
+            {id:'sport_012',question:"Combien de joueurs y a-t-il dans une équipe de basketball sur le terrain ?",options:["4","5","6","7"],answer:"5",difficulty:"facile",points:100,time:15},
+        ]
+    },
+    art_litterature: {
+        label:'Art & Littérature', icon:'🎨', category_id:7,
+        questions:[
+            {id:'art_005',question:"Dans quel musée se trouve la Joconde ?",options:["Musée d'Orsay","Musée du Prado","Musée du Louvre","Musée de l'Ermitage"],answer:"Musée du Louvre",difficulty:"facile",points:100,time:15},
+            {id:'art_007',question:"Quel peintre hollandais est connu pour avoir peint 'La Nuit étoilée' ?",options:["Rembrandt","Vermeer","Van Gogh","Mondrian"],answer:"Van Gogh",difficulty:"facile",points:100,time:15},
+            {id:'art_010',question:"Qui a écrit 'Le Petit Prince' ?",options:["Jules Verne","Albert Camus","Antoine de Saint-Exupéry","Marcel Proust"],answer:"Antoine de Saint-Exupéry",difficulty:"facile",points:100,time:15},
+            {id:'art_015',question:"Qui a écrit 'L'Étranger' ?",options:["Jean-Paul Sartre","André Malraux","Albert Camus","Simone de Beauvoir"],answer:"Albert Camus",difficulty:"facile",points:100,time:15},
+            {id:'art_018',question:"Quelle pièce de théâtre de Shakespeare parle d'un prince danois ?",options:["Macbeth","Othello","Hamlet","Le Roi Lear"],answer:"Hamlet",difficulty:"facile",points:100,time:15},
+        ]
+    }
+};
+
+const LETTERS = ['A','B','C','D'];
+const TOTAL_Q = 10;
+
+// ── STATE ──
+let state = {
+    mode: 'solo',
+    selectedCat: 'all',
+    questions: [],
+    current: 0,
+    score: 0,
+    streak: 0,
+    correctCount: 0,
+    answered: false,
+    timerInterval: null,
+    timerLeft: 15,
+    timerMax: 15,
+    startTime: null,
+    answerTimes: [],
+    hintUsed: false,
+    gameStartTime: null,
+};
+
+// ── START SCREEN ──
+function selectMode(el) {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.mode = el.dataset.mode;
+}
+
+function selectCat(el) {
+    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.selectedCat = el.dataset.cat;
+}
+
+function buildQuestions() {
+    let pool = [];
+    if (state.selectedCat === 'all') {
+        Object.values(QUESTIONS_DATA).forEach(cat => {
+            cat.questions.forEach(q => pool.push({...q, catId: cat.category_id, catLabel: cat.label, catIcon: cat.icon}));
+        });
+    } else {
+        const cat = QUESTIONS_DATA[state.selectedCat];
+        if (cat) cat.questions.forEach(q => pool.push({...q, catId: cat.category_id, catLabel: cat.label, catIcon: cat.icon}));
+    }
+    // Shuffle
+    pool.sort(() => Math.random() - 0.5);
+    return pool.slice(0, TOTAL_Q);
+}
+
+function startGame() {
+    state.questions = buildQuestions();
+    if (state.questions.length === 0) { alert("Aucune question disponible !"); return; }
+    state.current = 0;
+    state.score = 0;
+    state.streak = 0;
+    state.correctCount = 0;
+    state.answered = false;
+    state.answerTimes = [];
+    state.gameStartTime = Date.now();
+
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-wrap').style.display = 'flex';
+    document.getElementById('mode-label').textContent = {solo:'Solo',rapidite:'Rapidité',tournoi:'Tournoi',buzz:'Buzz'}[state.mode] || state.mode;
+
+    loadQuestion();
+}
+
+// ── LOAD QUESTION ──
+function loadQuestion() {
+    const q = state.questions[state.current];
+    state.answered = false;
+    state.hintUsed = false;
+    state.startTime = Date.now();
+
+    // META
+    document.getElementById('q-counter').textContent = `${state.current+1}/${state.questions.length}`;
+    document.getElementById('q-number').textContent = `Question ${state.current+1} sur ${state.questions.length}`;
+    document.getElementById('cat-icon').textContent = q.catIcon || '🎲';
+    document.getElementById('cat-label').textContent = q.catLabel || '—';
+
+    const diffEl = document.getElementById('diff-badge');
+    diffEl.textContent = q.difficulty;
+    diffEl.className = 'diff-badge ' + q.difficulty;
+
+    document.getElementById('score-display').textContent = state.score.toLocaleString();
+    document.getElementById('question-text').textContent = q.question;
+
+    // PROGRESS
+    const pct = (state.current / state.questions.length) * 100;
+    document.getElementById('progress-fill').style.width = pct + '%';
+
+    // STREAK DOTS
+    const dots = document.querySelectorAll('.streak-dot');
+    dots.forEach((d,i) => d.classList.toggle('active', i < Math.min(state.streak, 5)));
+
+    // OPTIONS
+    const grid = document.getElementById('options-grid');
+    grid.innerHTML = '';
+    // Shuffle options
+    const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+    shuffled.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="option-letter">${LETTERS[i]}</span><span>${opt}</span>`;
+        btn.onclick = () => answerQuestion(opt, btn, q);
+        grid.appendChild(btn);
+    });
+
+    // HINT
+    document.getElementById('hint-box').classList.remove('visible');
+    const hintBtn = document.getElementById('hint-btn');
+    hintBtn.disabled = false;
+
+    // TIMER
+    startTimer(q.time);
+}
+
+// ── TIMER ──
+function startTimer(seconds) {
+    clearInterval(state.timerInterval);
+    state.timerLeft = seconds;
+    state.timerMax  = seconds;
+    updateTimerUI();
+
+    state.timerInterval = setInterval(() => {
+        state.timerLeft--;
+        updateTimerUI();
+        if (state.timerLeft <= 0) {
+            clearInterval(state.timerInterval);
+            if (!state.answered) timeOut();
+        }
+    }, 1000);
+}
+
+function updateTimerUI() {
+    const pct = (state.timerLeft / state.timerMax) * 100;
+    const fill = document.getElementById('timer-fill');
+    const num  = document.getElementById('timer-num');
+    fill.style.width = pct + '%';
+    num.textContent  = state.timerLeft;
+    const isDanger   = state.timerLeft <= 5;
+    fill.classList.toggle('danger', isDanger);
+    num.classList.toggle('danger', isDanger);
+}
+
+function timeOut() {
+    state.answered = true;
+    state.streak   = 0;
+    // Révéler bonne réponse
+    revealAnswer(null);
+    showFeedback(false, 0, true);
+    setTimeout(nextQuestion, 2000);
+}
+
+// ── ANSWER ──
+function answerQuestion(chosen, btn, q) {
+    if (state.answered) return;
+    state.answered = true;
+    clearInterval(state.timerInterval);
+
+    const timeTaken = Math.round((Date.now() - state.startTime) / 1000);
+    state.answerTimes.push(timeTaken);
+
+    const isCorrect = chosen === q.answer;
+    let pts = 0;
+
+    if (isCorrect) {
+        // Bonus rapidité en mode rapidité
+        let bonus = 1;
+        if (state.mode === 'rapidite') bonus = Math.max(1, (state.timerLeft / state.timerMax) * 2);
+        pts = Math.round(q.points * bonus);
+        if (state.hintUsed) pts = Math.max(0, pts - 50);
+        state.score += pts;
+        state.streak++;
+        state.correctCount++;
+        // Bonus streak
+        if (state.streak >= 3) pts += 50 * (state.streak - 2);
+
+        btn.classList.add('correct');
+        spawnParticles(btn);
+    } else {
+        btn.classList.add('wrong');
+        state.streak = 0;
+    }
+
+    revealAnswer(q.answer);
+    animateScore();
+    showFeedback(isCorrect, pts, false);
+
+    setTimeout(nextQuestion, 2200);
+}
+
+function revealAnswer(correctAnswer) {
+    document.querySelectorAll('.option-btn').forEach(b => {
+        b.disabled = true;
+        const text = b.querySelector('span:last-child').textContent;
+        if (text === correctAnswer && !b.classList.contains('wrong')) {
+            b.classList.add('reveal');
+        }
+    });
+}
+
+// ── FEEDBACK ──
+function showFeedback(correct, pts, timeout) {
+    const badge = document.getElementById('feedback-badge');
+    badge.className = 'feedback-badge ' + (timeout ? 'wrong-fb' : correct ? 'correct-fb' : 'wrong-fb');
+    document.getElementById('feedback-icon').textContent = timeout ? '⏱' : correct ? '✓' : '✗';
+    document.getElementById('feedback-text').textContent = timeout ? 'Temps écoulé !' : correct ? 'Bonne réponse !' : 'Mauvaise réponse !';
+    document.getElementById('feedback-pts').textContent  = correct ? `+${pts} pts` : '+0 pts';
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 1800);
+}
+
+// ── SCORE ANIMATION ──
+function animateScore() {
+    const el = document.getElementById('score-display');
+    el.textContent = state.score.toLocaleString();
+    el.classList.add('bump');
+    setTimeout(() => el.classList.remove('bump'), 300);
+}
+
+// ── PARTICLES ──
+function spawnParticles(el) {
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    for (let i=0;i<8;i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = 4 + Math.random()*6;
+        p.style.cssText = `width:${size}px;height:${size}px;background:${Math.random()>.5?'#d4af37':'#fcf6ba'};left:${cx}px;top:${cy}px;--dx:${(Math.random()-0.5)*120}px;--dy:${(Math.random()-1)*100}px;`;
+        document.body.appendChild(p);
+        setTimeout(()=>p.remove(),800);
+    }
+}
+
+// ── HINT ──
+function showHint() {
+    const q = state.questions[state.current];
+    state.hintUsed = true;
+    document.getElementById('hint-btn').disabled = true;
+    // Éliminer 1 mauvaise réponse
+    const btns = [...document.querySelectorAll('.option-btn:not(:disabled)')];
+    const wrongBtns = btns.filter(b => b.querySelector('span:last-child').textContent !== q.answer);
+    if (wrongBtns.length > 0) {
+        const toHide = wrongBtns[Math.floor(Math.random()*wrongBtns.length)];
+        toHide.style.opacity = '0.25';
+        toHide.disabled = true;
+    }
+    const hintBox = document.getElementById('hint-box');
+    document.getElementById('hint-text').textContent = `Une mauvaise réponse a été éliminée. −50 pts si bonne réponse.`;
+    hintBox.classList.add('visible');
+}
+
+// ── NEXT QUESTION ──
+function nextQuestion() {
+    state.current++;
+    if (state.current >= state.questions.length) {
+        endGame();
+    } else {
+        loadQuestion();
+    }
+}
+
+// ── ABANDON ──
+function confirmAbandon() {
+    if (confirm('Abandonner la partie ? Votre score sera sauvegardé.')) {
+        endGame(true);
+    }
+}
+
+// ── END GAME ──
+function endGame(abandoned = false) {
+    clearInterval(state.timerInterval);
+
+    const avgTime = state.answerTimes.length
+        ? Math.round(state.answerTimes.reduce((a,b)=>a+b,0) / state.answerTimes.length)
+        : 0;
+    const accuracy = state.questions.length
+        ? Math.round(state.correctCount * 100 / state.questions.length)
+        : 0;
+
+    document.getElementById('end-title').textContent = abandoned ? 'Partie abandonnée' : state.correctCount >= 8 ? '🏆 Champion !' : state.correctCount >= 5 ? 'Bien joué !' : 'Partie terminée';
+    document.getElementById('end-score').textContent    = state.score.toLocaleString();
+    document.getElementById('end-correct').textContent  = `${state.correctCount}/${state.questions.length}`;
+    document.getElementById('end-accuracy').textContent = accuracy + '%';
+    document.getElementById('end-time').textContent     = avgTime + 's';
+
+    document.getElementById('game-wrap').style.display = 'none';
+    document.getElementById('end-screen').classList.add('visible');
+
+    // TODO: Envoyer les données au serveur PHP (end_game.php)
+    // sendGameResults(abandoned);
+}
+
+// TODO: sendGameResults — sera connecté à end_game.php
+// function sendGameResults(abandoned) {
+//     fetch('end_game.php', {
+//         method:'POST',
+//         headers:{'Content-Type':'application/json'},
+//         body: JSON.stringify({
+//             session_id: SESSION_ID,
+//             score: state.score,
+//             correct: state.correctCount,
+//             answers: state.answerTimes,
+//             abandoned: abandoned,
+//         })
+//     });
+// }
+</script>
+</body>
+</html>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec

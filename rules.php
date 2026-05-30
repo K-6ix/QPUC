@@ -343,7 +343,11 @@ session_start();
              <ul>
                 <li><a href="index.php">Home</a></li>
                 <li><a href="rules.php">Rules</a></li>
+<<<<<<< HEAD
                 <li><a href="game.php" class="btn-play">▶ Play</a></li>
+=======
+                <li><a href="game.html" class="btn-play">▶ Play</a></li>
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                 <li><a href="#classement">Classement</a></li>
                 <li><a href="aboutus.php">About Us</a></li>
             </ul>

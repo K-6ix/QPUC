@@ -21,22 +21,30 @@ const { Server } = require('socket.io');
 const path       = require('path');
 const fs         = require('fs');
 
+<<<<<<< HEAD
 // ── Config API PHP (Apache) pour persister ELO en BDD ──
 // Adapter le chemin selon votre installation XAMPP
 const PHP_BASE_URL = process.env.PHP_URL || 'http://localhost/qvpcPhpV1';
 const SERVER_KEY   = 'qpc_server_2026';  // doit matcher save_elo.php
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 process.on('uncaughtException',  err => console.error('UNCAUGHT EXCEPTION:', err));
 process.on('unhandledRejection', err => console.error('UNHANDLED REJECTION:', err));
 
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
+<<<<<<< HEAD
     cors: { origin: ['http://localhost','http://127.0.0.1','http://localhost:8080','http://localhost:8888','http://localhost:3000'], methods: ['GET','POST'] },
+=======
+    cors: { origin: '*', methods: ['GET','POST'] },
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 });
 
 app.use(express.json());
 
+<<<<<<< HEAD
 // ══════════════════════════════════════════════════════════════
 // SÉCURITÉ — Filtrage des fichiers servis en statique
 // ══════════════════════════════════════════════════════════════
@@ -101,6 +109,10 @@ app.use(express.static(__dirname, {
     index: false,
     dotfiles: 'deny'
 }));
+=======
+// On sert tous les fichiers statiques à côté de server.js (HTML/CSS/JS)
+app.use(express.static(__dirname));
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 
 // ══════════════════════════════════════════
 // ELO CONFIG
@@ -208,6 +220,7 @@ const BUZZ_DELAY      = 2000;   // afficher les options
 const ANSWER_TIMEOUT  = 8;      // secondes pour répondre après buzz
 const ROOM_TTL_MS     = 60000;  // suppression auto de la room après la fin
 
+<<<<<<< HEAD
 function destroyRoom(roomCode) {
     const room = rooms.get(roomCode);
     if (!room) return;
@@ -220,6 +233,8 @@ function destroyRoom(roomCode) {
     console.log(`🗑 Room ${roomCode} détruite proprement`);
 }
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 function clearRoomTimers(room) {
     if (!room) return;
     if (room.timerInterval)       { clearInterval(room.timerInterval);    room.timerInterval = null; }
@@ -297,9 +312,12 @@ function startGameCountdown(roomCode) {
         room.deleteTimeout = null;
     }
 
+<<<<<<< HEAD
     if (room.countdownStarted) return;
     room.countdownStarted = true;
     room.phase = 'countdown';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     room.status    = 'countdown';
     room.questions = buildQuestions();
     room.currentQ  = 0;
@@ -319,8 +337,11 @@ function startGameCountdown(roomCode) {
             io.to(roomCode).emit('countdown', { count });
         } else {
             clearInterval(interval);
+<<<<<<< HEAD
             const latestRoom = rooms.get(roomCode);
             if (latestRoom) latestRoom.countdownStarted = false;
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
             startQuestion(roomCode);
         }
     }, 1000);
@@ -337,7 +358,10 @@ function startQuestion(roomCode) {
     if (winnerId) return endGame(roomCode, winnerId);
 
     const q       = room.questions[room.currentQ];
+<<<<<<< HEAD
     room.phase = 'question';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     room.status   = 'playing';
     room.buzzedBy = null;
     room.answered = false;
@@ -370,7 +394,10 @@ function startQuestion(roomCode) {
         // Phase 3 : buzz ouvert
         room.buzzTimeout = setTimeout(() => {
             if (!rooms.has(roomCode)) return;
+<<<<<<< HEAD
             room.phase = 'buzz';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
             room.buzzOpen = true;
             io.to(roomCode).emit('buzz_open');
 
@@ -413,6 +440,7 @@ function nextQuestion(roomCode) {
     startQuestion(roomCode);
 }
 
+<<<<<<< HEAD
 // ── Persister l'ELO + stats de partie en BDD via Apache/PHP ──
 function persistElo(room, winnerId, eloResult) {
     if (!eloResult) return;
@@ -470,12 +498,17 @@ function persistElo(room, winnerId, eloResult) {
     req.end();
 }
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 function endGame(roomCode, winnerId) {
     const room = rooms.get(roomCode);
     if (!room) return;
     clearRoomTimers(room);
     if (room.status === 'gameOver') return;
+<<<<<<< HEAD
     room.phase = 'gameover';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     room.status = 'gameOver';
 
     const winner = room.players[winnerId];
@@ -491,9 +524,12 @@ function endGame(roomCode, winnerId) {
         winner.elo = newWinner;
         loser.elo  = newLoser;
         console.log(`🏆 ${winner.name} +${winPts} ELO | ${loser.name} -${lossPts} ELO`);
+<<<<<<< HEAD
 
         // Persister en BDD (ELO + stats de partie)
         persistElo(room, winnerId, eloResult);
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     }
 
     io.to(roomCode).emit('game_over', {
@@ -507,12 +543,20 @@ function endGame(roomCode, winnerId) {
 
     // Reset des "ready in game" pour préparer une éventuelle revanche
     room.gameReady       = {};
+<<<<<<< HEAD
     room.phase = 'rematch';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     room.rematchAccepted = new Set();
 
     // Suppression auto après 60s SAUF si revanche entre-temps
     room.deleteTimeout = setTimeout(() => {
+<<<<<<< HEAD
         destroyRoom(roomCode);
+=======
+        rooms.delete(roomCode);
+        console.log(`🗑  Room ${roomCode} supprimée (timeout)`);
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     }, ROOM_TTL_MS);
 }
 
@@ -538,7 +582,11 @@ io.on('connection', (socket) => {
                 [playerId]: {
                     id: playerId, socketId: socket.id,
                     name: playerName, elo: playerElo,
+<<<<<<< HEAD
                     score: 0, correct: 0, wrong: 0, catResults: [],
+=======
+                    score: 0, correct: 0, wrong: 0,
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                     ready: false, isHost: true,
                 }
             },
@@ -550,9 +598,12 @@ io.on('connection', (socket) => {
             timerLeft: 0,
             transitioning: false,
             processingAnswer: false,
+<<<<<<< HEAD
             phase: 'lobby',
             transitionQueue: [],
             countdownStarted: false,
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
             gameReady: {},          // { playerId: true } — qui est sur game-1v1.html
             rematchAccepted: new Set(),
         };
@@ -580,7 +631,11 @@ io.on('connection', (socket) => {
         room.players[playerId] = {
             id: playerId, socketId: socket.id,
             name: playerName, elo: playerElo,
+<<<<<<< HEAD
             score: 0, correct: 0, wrong: 0, catResults: [],
+=======
+            score: 0, correct: 0, wrong: 0,
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
             ready: false, isHost: false,
         };
 
@@ -606,7 +661,10 @@ io.on('connection', (socket) => {
         if (!player)                { socket.emit('error', { message: 'Joueur pas dans la room.' }); return; }
 
         // Met à jour le socket.id (playerId reste stable)
+<<<<<<< HEAD
         if (player.disconnectTimeout) { clearTimeout(player.disconnectTimeout); player.disconnectTimeout = null; }
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         player.socketId = socket.id;
         socket.join(roomCode);
 
@@ -617,11 +675,17 @@ io.on('connection', (socket) => {
             const ready    = Object.values(room.gameReady).filter(Boolean).length;
             console.log(`🚪 [${roomCode}] ${player.name} prêt en jeu (${ready}/${total})`);
 
+<<<<<<< HEAD
             if (ready >= 2 && total >= 2 && !room.countdownStarted) {
+=======
+            if (ready >= 2 && total >= 2) {
+                // Petit délai pour laisser la page finir son rendu
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                 setTimeout(() => startGameCountdown(roomCode), 300);
             }
         }
 
+<<<<<<< HEAD
         // State resync — TOUJOURS envoyé, quel que soit le status
         // Permet au client de se reconstruire entièrement après reconnexion
         const currentQuestion = room.questions?.[room.currentQ] || null;
@@ -644,6 +708,8 @@ io.on('connection', (socket) => {
             } : null,
         });
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         socket.emit('game_state', {
             players: getPublicScores(room),
             status : room.status,
@@ -671,7 +737,10 @@ io.on('connection', (socket) => {
         if (Object.keys(room.players).length < 2) return;
         if (room.status !== 'lobby') return;
 
+<<<<<<< HEAD
         room.phase = 'redirecting';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         room.status    = 'preparing_game';
         room.gameReady = {};
         Object.keys(room.players).forEach(pid => room.gameReady[pid] = false);
@@ -684,13 +753,20 @@ io.on('connection', (socket) => {
     // ── BUZZ ──
     socket.on('buzz', ({ code, playerId }) => {
         const room = rooms.get(code);
+<<<<<<< HEAD
         if (!room || room.phase !== 'buzz' || room.status !== 'playing' || !room.buzzOpen || room.buzzedBy || room.answered) return;
+=======
+        if (!room || room.status !== 'playing' || !room.buzzOpen || room.buzzedBy || room.answered) return;
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 
         const player = room.players[playerId];
         if (!player) return;
 
         room.processingAnswer = false;
+<<<<<<< HEAD
         room.phase = 'answer';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         room.buzzedBy = playerId;
         clearRoomTimers(room);
 
@@ -715,7 +791,10 @@ io.on('connection', (socket) => {
                     const malus = -ELO.BUZZ_TIMEOUT_PENALTY;
                     player.score = Math.max(0, player.score + malus);
                     player.wrong++;
+<<<<<<< HEAD
                     player.catResults.push({ catId: q.category_id || 0, correct: 0 });
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                     io.to(code).emit('answer_result', {
                         answerId: playerId, correct: false,
                         pts: malus, answer: q.answer,
@@ -730,10 +809,16 @@ io.on('connection', (socket) => {
     // ── RÉPONDRE ──
     socket.on('answer', ({ code, playerId, chosen }) => {
         const room = rooms.get(code);
+<<<<<<< HEAD
         if (!room || room.phase !== 'answer' || room.answered || room.processingAnswer) return;
         if (room.buzzedBy !== playerId) return;
         if (typeof chosen !== 'string' || chosen.length > 120) return;
         room.processingAnswer = true;
+=======
+        if (!room || room.answered || room.processingAnswer) return;
+        room.processingAnswer = true;
+        if (room.buzzedBy !== playerId) return;
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 
         const player = room.players[playerId];
         if (!player) return;
@@ -752,9 +837,12 @@ io.on('connection', (socket) => {
         if (isCorrect) player.correct++;
         else           player.wrong++;
 
+<<<<<<< HEAD
         // Tracking catégorie pour le radar
         player.catResults.push({ catId: q.category_id || 0, correct: isCorrect ? 1 : 0 });
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         io.to(code).emit('answer_result', {
             answerId: playerId, correct: isCorrect, pts,
             answer  : q.answer, scores: getPublicScores(room), timeout: false,
@@ -804,7 +892,11 @@ io.on('connection', (socket) => {
                 console.log(`⚠️  ${player.name} disconnect — attente reconnexion`);
 
                 // 10s pour se reconnecter avant forfait
+<<<<<<< HEAD
                 player.disconnectTimeout = setTimeout(() => {
+=======
+                setTimeout(() => {
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                     const r = rooms.get(code);
                     if (!r) return;
                     const p = r.players[playerId];
@@ -813,7 +905,11 @@ io.on('connection', (socket) => {
                         delete r.players[playerId];
 
                         if (Object.keys(r.players).length === 0) {
+<<<<<<< HEAD
                             destroyRoom(code);
+=======
+                            rooms.delete(code);
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
                         } else if (r.status !== 'gameOver') {
                             const remaining = Object.values(r.players)[0];
                             r.status = 'gameOver';
@@ -845,7 +941,10 @@ io.on('connection', (socket) => {
         if (!room.players[playerId]) return;
 
         if (!room.rematchAccepted) room.rematchAccepted = new Set();
+<<<<<<< HEAD
         room.phase = 'rematch';
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         room.rematchAccepted.add(playerId);
 
         const playerCount   = Object.keys(room.players).length;
@@ -897,11 +996,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // ══════════════════════════════════════════
+<<<<<<< HEAD
 // CHAMPIONSHIP — Mode 4 joueurs (séparé)
 // ══════════════════════════════════════════
 require('./server-championship')(io, QUESTIONS);
 
 // ══════════════════════════════════════════
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 // START
 // ══════════════════════════════════════════
 const PORT = process.env.PORT || 3000;

@@ -64,7 +64,11 @@ function $(id) { return document.getElementById(id); }
 function init() {
     if (!ROOM_CODE) {
         alert('Code de room manquant. Retour au lobby.');
+<<<<<<< HEAD
         location.href = 'lobby-1v1.php';
+=======
+        location.href = 'lobby-1v1.html';
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
         return;
     }
 
@@ -126,7 +130,10 @@ function init() {
     socket.on('rematch_pending',  onRematchPending);
     socket.on('rematch_ready',    onRematchReady);
     socket.on('player_left',      onPlayerLeft);
+<<<<<<< HEAD
     socket.on('state_resync',     onStateResync);
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
     socket.on('error',            ({ message }) => alert(message));
 }
 
@@ -139,6 +146,7 @@ function onGameState({ players: scores, status }) {
     updateScores(scores, POINTS_TO_WIN);
 }
 
+<<<<<<< HEAD
 // ── Reconnexion mid-game : reconstruction de l'état ──
 function onStateResync(data) {
     console.log('🔄 state_resync | phase:', data.phase);
@@ -194,11 +202,14 @@ function onStateResync(data) {
     }
 }
 
+=======
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 function onCountdown({ count }) {
     const overlay = $('countdown-overlay');
     const num     = $('countdown-number');
     overlay.classList.remove('hidden');
     num.textContent = count;
+<<<<<<< HEAD
     // Reset animation via double-rAF (évite forced reflow synchrone)
     num.style.animation = 'none';
     requestAnimationFrame(() => {
@@ -206,6 +217,12 @@ function onCountdown({ count }) {
             num.style.animation = '';
         });
     });
+=======
+    // Reset de l'animation pour la rejouer
+    num.style.animation = 'none';
+    void num.offsetWidth;
+    num.style.animation = '';
+>>>>>>> 479bca22f359248ed3a065f59a47ae2852c294ec
 }
 
 function onQuestionText({ index, total, question, catLabel, catIcon, difficulty, scores, pointsToWin }) {
