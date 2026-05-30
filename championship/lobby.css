@@ -1,0 +1,443 @@
+/* ============================================================================
+   QPC - Championship Lobby CSS (thème noir/or)
+   Inspiré de lobby-1v1.css mais adapté pour 4 joueurs
+============================================================================ */
+
+:root {
+    --gold:        #d4af37;
+    --gold-bright: #f0c850;
+    --gold-dim:    #8a7124;
+    --bg-dark:     #0a0a0a;
+    --bg-card:     #161616;
+    --bg-elevated: #1f1f1f;
+    --text-main:   #f5f5f5;
+    --text-dim:    #999;
+    --border:      #2a2a2a;
+    --error:       #e54848;
+    --success:     #4caf50;
+    --shadow-gold: 0 0 24px rgba(212, 175, 55, 0.15);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: 'Raleway', 'Segoe UI', sans-serif;
+    background: radial-gradient(ellipse at top, #1a1410 0%, var(--bg-dark) 60%);
+    color: var(--text-main);
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+/* ─── Boutons globaux ─── */
+.back-btn {
+    position: fixed; top: 1.5rem; left: 1.5rem;
+    color: var(--text-dim); text-decoration: none;
+    font-size: 0.9rem; display: flex; gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 200ms;
+    z-index: 100;
+}
+.back-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+.logo-wrap {
+    position: fixed; top: 1.5rem; right: 1.5rem;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 1.5rem; color: var(--gold);
+    letter-spacing: 0.3em; font-weight: 700;
+    z-index: 100;
+}
+
+/* ─── Spinner connexion ─── */
+.connecting-wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg-dark);
+    z-index: 50;
+}
+.spinner {
+    width: 50px; height: 50px;
+    border: 3px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 1.5rem;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.connecting-text {
+    color: var(--text-dim); font-size: 0.95rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+}
+
+/* ─── Conteneur principal ─── */
+.container, .lobby-screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 2rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.lobby-screen {
+    max-width: 900px;
+    display: none;
+}
+
+.title-wrap {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.vs-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+.vs-line {
+    width: 60px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.vs-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem; font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+}
+.title-sub {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* ─── ELO display ─── */
+.elo-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.elo-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+}
+.elo-value {
+    font-size: 1.8rem; font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+}
+.elo-division {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+}
+
+/* ─── Cartes (créer/rejoindre) ─── */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-gold);
+}
+.card-title {
+    font-size: 1rem;
+    color: var(--text-main);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.input-group { margin-bottom: 1rem; }
+.input-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.4rem;
+}
+.input-field {
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 200ms;
+}
+.input-field:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+.input-field:read-only {
+    background: rgba(212, 175, 55, 0.04);
+    color: var(--gold);
+    cursor: default;
+}
+.code-input {
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+/* ─── Divider ─── */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0.5rem 0;
+}
+.divider-line {
+    flex: 1; height: 1px;
+    background: var(--border);
+}
+
+/* ─── Boutons ─── */
+.btn {
+    width: 100%;
+    border: none;
+    padding: 0.9rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 200ms;
+    text-transform: uppercase;
+}
+.btn-primary {
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    color: #000;
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.2);
+}
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35);
+}
+.btn-primary:disabled {
+    background: #444; color: #888;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+.btn-primary.ready-state {
+    background: linear-gradient(135deg, var(--success), #6dbd6d);
+    color: #fff;
+}
+.btn-secondary {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+    color: var(--text-main);
+    border-color: var(--text-dim);
+}
+
+.error-msg {
+    color: var(--error);
+    font-size: 0.85rem;
+    text-align: center;
+    min-height: 1.2em;
+    margin-bottom: 0.5rem;
+}
+
+/* ─── Lobby (4 places) ─── */
+.lobby-code-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--gold-dim);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-gold);
+}
+.lobby-code-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.5rem;
+}
+.lobby-code {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.4em;
+    text-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+    margin-bottom: 0.5rem;
+}
+.copy-hint {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: color 200ms;
+}
+.copy-hint:hover { color: var(--gold); }
+
+.players-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.player-slot {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 150px;
+    justify-content: center;
+    position: relative;
+    transition: all 250ms;
+}
+.player-slot.filled { border-color: var(--gold-dim); }
+.player-slot.ready {
+    border-color: var(--success);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.05), var(--bg-card));
+}
+.player-slot.empty {
+    border-style: dashed;
+    opacity: 0.5;
+}
+.player-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+}
+.player-slot.empty .player-avatar {
+    background: var(--bg-elevated);
+    color: var(--text-dim);
+    border: 1px dashed var(--border);
+}
+.player-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.player-slot.empty .player-name {
+    color: var(--text-dim);
+    font-style: italic;
+    font-weight: 400;
+}
+.player-elo {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+.player-status {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+}
+.player-slot.ready .player-status { color: var(--success); }
+.host-badge {
+    position: absolute;
+    top: 0.4rem; right: 0.4rem;
+    background: var(--gold);
+    color: #000;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+}
+
+.lobby-status {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+}
+
+.lobby-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+/* ─── Countdown overlay ─── */
+.countdown-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 10, 10, 0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+.countdown-overlay.active { display: flex; }
+.countdown-label {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 2rem;
+}
+.countdown-number {
+    font-size: 9rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 0 60px rgba(212, 175, 55, 0.5);
+    line-height: 1;
+    animation: pulse 1s infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 700px) {
+    .players-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .vs-text { font-size: 1.2rem; }
+    .lobby-code { font-size: 1.8rem; }
+    .countdown-number { font-size: 5rem; }
+}

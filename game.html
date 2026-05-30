@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questions pour un Champion</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #D4AF37, #B8860B);
+            color: #000;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .screen {
+            display: none;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+
+        .screen.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #D4AF37;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: 2px solid #D4AF37;
+            background: transparent;
+            color: #D4AF37;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin: 10px;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background: #D4AF37;
+            color: #000;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: #D4AF37;
+            color: #000;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #F4D03F;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid #D4AF37;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .player-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .question-area {
+            background: rgba(255,255,255,0.08);
+            border: 2px solid #D4AF37;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question-text {
+            font-size: 1.5rem;
+            margin: 20px 0;
+            color: #F4D03F;
+        }
+
+        .answers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .answer-btn {
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #D4AF37;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .answer-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .answer-btn.correct {
+            background: #27ae60;
+            border-color: #27ae60;
+        }
+
+        .answer-btn.incorrect {
+            background: #c0392b;
+            border-color: #c0392b;
+        }
+
+        .buzzer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .buzzer-btn {
+            padding: 20px;
+            background: linear-gradient(135deg, #D4AF37, #B8860B);
+            border: none;
+            color: #000;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .buzzer-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+        }
+
+        .buzzer-btn:active {
+            transform: scale(0.95);
+        }
+
+        .buzzer-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .buzzer-key {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .player-score {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #D4AF37;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .player-score.active {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: #F4D03F;
+        }
+
+        .player-name {
+            font-weight: bold;
+            color: #D4AF37;
+            margin-bottom: 10px;
+        }
+
+        .player-points {
+            font-size: 2rem;
+            color: #F4D03F;
+            font-weight: bold;
+        }
+
+        .message {
+            padding: 15px;
+            background: rgba(212, 175, 55, 0.2);
+            border: 2px solid #D4AF37;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .message.correct {
+            background: rgba(39, 174, 96, 0.2);
+            border-color: #27ae60;
+            color: #27ae60;
+        }
+
+        .message.incorrect {
+            background: rgba(192, 57, 43, 0.2);
+            border-color: #c0392b;
+            color: #c0392b;
+        }
+
+        .instructions {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #D4AF37;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .key-hint {
+            background: #1a1a1a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #D4AF37;
+            font-weight: bold;
+            display: inline-block;
+            margin: 0 5px;
+        }
+
+        @media (max-width: 768px) {
+            .player-inputs { grid-template-columns: 1fr; }
+            .answers-grid { grid-template-columns: 1fr; }
+            .buzzer-grid { grid-template-columns: 1fr; }
+            .scoreboard { grid-template-columns: 1fr 1fr; }
+            .header h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏆 Questions pour un Champion</h1>
+        <p>Jeu de Culture Générale</p>
+    </div>
+
+    <!-- Écran Accueil -->
+    <div class="screen active" id="screenHome">
+        <div class="card" style="text-align: center; max-width: 600px; margin: 50px auto;">
+            <h2 style="color: #D4AF37; font-size: 2rem; margin-bottom: 20px;">Bienvenue !</h2>
+            <p style="margin-bottom: 30px; line-height: 1.8;">
+                Affrontez jusqu'à 3 adversaires dans ce jeu de culture générale.<br><br>
+                <strong>Buzzers Clavier :</strong><br>
+                Joueur 1: <span class="key-hint">A</span> | 
+                Joueur 2: <span class="key-hint">V</span> | 
+                Joueur 3: <span class="key-hint">J</span> | 
+                Joueur 4: <span class="key-hint">M</span>
+            </p>
+            <button class="btn btn-primary" onclick="showScreen('screenSetup')" style="font-size: 1.2rem; padding: 20px 50px;">
+                🎮 COMMENCER UNE PARTIE
+            </button>
+        </div>
+    </div>
+
+    <!-- Écran Setup -->
+    <div class="screen" id="screenSetup">
+        <div class="card" style="max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #D4AF37; text-align: center; margin-bottom: 30px;">Inscription des Joueurs</h2>
+            
+            <div class="player-inputs">
+                <div>
+                    <label style="color: #D4AF37; font-weight: bold;">👤 Joueur 1 (Touche A)</label>
+                    <input type="text" id="player1Name" placeholder="Nom du joueur 1" value="Alice">
+                </div>
+                <div>
+                    <label style="color: #D4AF37; font-weight: bold;">👤 Joueur 2 (Touche V)</label>
+                    <input type="text" id="player2Name" placeholder="Nom du joueur 2" value="Bob">
+                </div>
+                <div>
+                    <label style="color: #D4AF37; font-weight: bold;">👤 Joueur 3 (Touche J)</label>
+                    <input type="text" id="player3Name" placeholder="Nom du joueur 3" value="Charlie">
+                </div>
+                <div>
+                    <label style="color: #D4AF37; font-weight: bold;">👤 Joueur 4 (Touche M)</label>
+                    <input type="text" id="player4Name" placeholder="Nom du joueur 4" value="Diana">
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn btn-primary" onclick="startGame()" style="font-size: 1.1rem;">
+                    🚀 LANCER LA PARTIE
+                </button>
+                <button class="btn" onclick="showScreen('screenHome')">⬅ RETOUR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Écran Jeu -->
+    <div class="screen" id="screenGame">
+        <div class="card">
+            <h2 style="color: #D4AF37; text-align: center; margin-bottom: 20px;">Manche 1 - 9 Points Gagnants</h2>
+            
+            <div class="scoreboard" id="scoreboard"></div>
+
+            <div class="question-area">
+                <div style="color: #D4AF37; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px;">
+                    <span id="themeDisplay">HISTOIRE</span> - Question <span id="questionNumber">1</span>
+                </div>
+                <div class="question-text" id="questionText">Appuyez sur "Question Suivante" pour commencer</div>
+                
+                <div class="answers-grid" id="answersGrid" style="display: none;"></div>
+                
+                <div id="buzzerSection">
+                    <p style="color: #D4AF37; margin-bottom: 15px; font-weight: bold;">🔔 Qui buzz en premier ?</p>
+                    <div class="buzzer-grid" id="buzzerGrid"></div>
+                    <div class="instructions">
+                        Appuyez sur <span class="key-hint">A</span>, <span class="key-hint">V</span>, <span class="key-hint">J</span> ou <span class="key-hint">M</span> pour buzzer
+                    </div>
+                </div>
+
+                <input type="text" id="answerInput" placeholder="Votre réponse..." style="display: none; margin-top: 20px;">
+                
+                <div id="resultMessage" class="message" style="display: none;"></div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" id="nextQuestionBtn" onclick="nextQuestion()" style="display: none;">
+                        ➡ QUESTION SUIVANTE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Écran Résultats -->
+    <div class="screen" id="screenResults">
+        <div class="card" style="text-align: center; max-width: 600px; margin: 50px auto;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">🏆</div>
+            <h2 style="color: #D4AF37; font-size: 2rem; margin-bottom: 20px;">Partie Terminée !</h2>
+            <div id="resultsList" style="margin: 30px 0;"></div>
+            <button class="btn btn-primary" onclick="showScreen('screenHome')" style="font-size: 1.1rem; padding: 15px 40px;">
+                🏠 RETOUR À L'ACCUEIL
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // DONNÉES
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        const QUESTIONS = [
+            // HISTOIRE
+            { theme: "HISTOIRE", q: "En quelle année a eu lieu la Révolution française ?", r: "1789", options: ["1789", "1792", "1795", "1800"] },
+            { theme: "HISTOIRE", q: "Qui était le premier président de la Ve République ?", r: "Charles de Gaulle", options: ["Charles de Gaulle", "Georges Pompidou", "Valéry Giscard d'Estaing", "François Mitterrand"] },
+            { theme: "HISTOIRE", q: "En quelle année Christophe Colomb a découvert l'Amérique ?", r: "1492", options: ["1492", "1500", "1498", "1504"] },
+            { theme: "HISTOIRE", q: "Qui a peint la Joconde ?", r: "Léonard de Vinci", options: ["Léonard de Vinci", "Michel-Ange", "Raphaël", "Botticelli"] },
+            
+            // GÉOGRAPHIE
+            { theme: "GÉOGRAPHIE", q: "Quelle est la capitale de la France ?", r: "Paris", options: ["Paris", "Lyon", "Marseille", "Toulouse"] },
+            { theme: "GÉOGRAPHIE", q: "Quel est le plus grand océan du monde ?", r: "Pacifique", options: ["Pacifique", "Atlantique", "Indien", "Arctique"] },
+            { theme: "GÉOGRAPHIE", q: "Quel fleuve traverse Paris ?", r: "Seine", options: ["Seine", "Loire", "Rhône", "Garonne"] },
+            { theme: "GÉOGRAPHIE", q: "Quel est le plus grand pays en superficie ?", r: "Russie", options: ["Russie", "Canada", "États-Unis", "Chine"] },
+            
+            // SCIENCES
+            { theme: "SCIENCES", q: "Combien de planètes y a-t-il dans notre système solaire ?", r: "8", options: ["8", "9", "10", "7"] },
+            { theme: "SCIENCES", q: "Quel est le plus grand mammifère du monde ?", r: "Baleine bleue", options: ["Baleine bleue", "Éléphant", "Girafe", "Hippopotame"] },
+            { theme: "SCIENCES", q: "Quel élément chimique a le symbole 'Au' ?", r: "Or", options: ["Or", "Argent", "Cuivre", "Fer"] },
+            { theme: "SCIENCES", q: "Combien de continents y a-t-il ?", r: "7", options: ["7", "6", "5", "8"] },
+            
+            // CULTURE
+            { theme: "CULTURE", q: "Quel réalisateur a fait 'Pulp Fiction' ?", r: "Quentin Tarantino", options: ["Quentin Tarantino", "Martin Scorsese", "Steven Spielberg", "Christopher Nolan"] },
+            { theme: "CULTURE", q: "Quel auteur a écrit 'Les Misérables' ?", r: "Victor Hugo", options: ["Victor Hugo", "Honoré de Balzac", "Alexandre Dumas", "Gustave Flaubert"] },
+            { theme: "CULTURE", q: "En quelle année l'homme a marché sur la Lune ?", r: "1969", options: ["1969", "1970", "1968", "1971"] },
+            { theme: "CULTURE", q: "Quel compositeur a écrit la 9ème Symphonie ?", r: "Beethoven", options: ["Beethoven", "Mozart", "Chopin", "Bach"] }
+        ];
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // VARIABLES GLOBALES
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        let players = [];
+        let currentQuestionIndex = 0;
+        let currentQuestion = null;
+        let buzzingPlayer = null;
+        let usedQuestions = new Set();
+
+        const BUZZER_KEYS = {
+            'a': 0,  // Joueur 1
+            'v': 1,  // Joueur 2
+            'j': 2,  // Joueur 3
+            'm': 3   // Joueur 4
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // FONCTIONS PRINCIPALES
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function startGame() {
+            const names = [
+                document.getElementById('player1Name').value || 'Joueur 1',
+                document.getElementById('player2Name').value || 'Joueur 2',
+                document.getElementById('player3Name').value || 'Joueur 3',
+                document.getElementById('player4Name').value || 'Joueur 4'
+            ];
+
+            players = names.map((name, i) => ({
+                id: i,
+                name: name,
+                points: 0,
+                key: ['A', 'V', 'J', 'M'][i]
+            }));
+
+            currentQuestionIndex = 0;
+            usedQuestions.clear();
+            buzzingPlayer = null;
+
+            updateScoreboard();
+            showScreen('screenGame');
+            nextQuestion();
+        }
+
+        function updateScoreboard() {
+            const scoreboard = document.getElementById('scoreboard');
+            scoreboard.innerHTML = '';
+            players.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = 'player-score' + (buzzingPlayer && buzzingPlayer.id === i ? ' active' : '');
+                div.innerHTML = `
+                    <div class="player-name">${p.name}</div>
+                    <div class="player-points">${p.points}</div>
+                    <div style="font-size: 0.8rem; color: #D4AF37;">Touche: ${p.key}</div>
+                `;
+                scoreboard.appendChild(div);
+            });
+        }
+
+        function getRandomQuestion() {
+            let question;
+            do {
+                question = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+            } while (usedQuestions.has(question.q));
+            usedQuestions.add(question.q);
+            return question;
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex >= 10) {
+                endGame();
+                return;
+            }
+
+            currentQuestion = getRandomQuestion();
+            buzzingPlayer = null;
+            currentQuestionIndex++;
+
+            document.getElementById('themeDisplay').textContent = currentQuestion.theme;
+            document.getElementById('questionNumber').textContent = currentQuestionIndex;
+            document.getElementById('questionText').textContent = currentQuestion.q;
+            document.getElementById('answerInput').value = '';
+            document.getElementById('answerInput').style.display = 'none';
+            document.getElementById('resultMessage').style.display = 'none';
+            document.getElementById('nextQuestionBtn').style.display = 'none';
+            document.getElementById('answersGrid').style.display = 'none';
+            document.getElementById('buzzerSection').style.display = 'block';
+
+            createBuzzerButtons();
+            updateScoreboard();
+        }
+
+        function createBuzzerButtons() {
+            const buzzerGrid = document.getElementById('buzzerGrid');
+            buzzerGrid.innerHTML = '';
+
+            players.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'buzzer-btn';
+                btn.innerHTML = `<div>${p.name}</div><div class="buzzer-key">Touche ${p.key}</div>`;
+                btn.onclick = () => playerBuzz(p);
+                buzzerGrid.appendChild(btn);
+            });
+        }
+
+        function playerBuzz(player) {
+            if (buzzingPlayer) return;
+            buzzingPlayer = player;
+
+            document.getElementById('buzzerSection').style.display = 'none';
+            document.getElementById('answerInput').style.display = 'block';
+            document.getElementById('answerInput').focus();
+
+            playBuzzerSound();
+            updateScoreboard();
+        }
+
+        function submitAnswer() {
+            if (!buzzingPlayer) return;
+
+            const answer = document.getElementById('answerInput').value.trim();
+            if (!answer) return;
+
+            const correct = normalizeAnswer(answer) === normalizeAnswer(currentQuestion.r);
+            const resultDiv = document.getElementById('resultMessage');
+
+            if (correct) {
+                buzzingPlayer.points += 3;
+                resultDiv.className = 'message correct';
+                resultDiv.textContent = '✅ BONNE RÉPONSE ! +3 points';
+            } else {
+                buzzingPlayer.points = Math.max(0, buzzingPlayer.points - 1);
+                resultDiv.className = 'message incorrect';
+                resultDiv.textContent = `❌ MAUVAISE RÉPONSE ! La bonne réponse était: ${currentQuestion.r}`;
+            }
+
+            resultDiv.style.display = 'block';
+            document.getElementById('answerInput').style.display = 'none';
+            document.getElementById('nextQuestionBtn').style.display = 'inline-block';
+            updateScoreboard();
+        }
+
+        function normalizeAnswer(str) {
+            return str.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, '');
+        }
+
+        function endGame() {
+            const sorted = [...players].sort((a, b) => b.points - a.points);
+            let resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = '';
+
+            sorted.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.style.padding = '15px';
+                div.style.margin = '10px 0';
+                div.style.background = 'rgba(212, 175, 55, 0.1)';
+                div.style.borderRadius = '8px';
+                div.innerHTML = `<strong>${i + 1}. ${p.name}</strong> - <span style="color: #D4AF37; font-size: 1.5rem;">${p.points} points</span>`;
+                resultsList.appendChild(div);
+            });
+
+            showScreen('screenResults');
+        }
+
+        function playBuzzerSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.frequency.value = 800;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                osc.start(audioContext.currentTime);
+                osc.stop(audioContext.currentTime + 0.1);
+            } catch(e) {}
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // BUZZERS CLAVIER (A, V, J, M)
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+
+            // Gestion des buzzers clavier
+            if (BUZZER_KEYS.hasOwnProperty(key) && document.getElementById('screenGame').classList.contains('active')) {
+                e.preventDefault();
+                const buzzerSection = document.getElementById('buzzerSection');
+                if (buzzerSection && buzzerSection.style.display !== 'none' && !buzzingPlayer) {
+                    const playerIndex = BUZZER_KEYS[key];
+                    if (playerIndex < players.length) {
+                        playerBuzz(players[playerIndex]);
+                    }
+                }
+            }
+
+            // Enter pour valider la réponse
+            if (e.key === 'Enter' && document.getElementById('answerInput').style.display !== 'none') {
+                e.preventDefault();
+                submitAnswer();
+            }
+        });
+
+        // Initialisation
+        console.log('Jeu chargé avec succès !');
+    </script>
+</body>
+</html>
