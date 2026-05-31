@@ -31,6 +31,45 @@ $avg_time     = $stats['average_time_answer'] ?? 0;
 $best_streak  = $stats['best_streak']    ?? 0;
 $total_time   = $stats['total_time_played'] ?? 0;
 
+// ── Stats championship ──────────────────────────────────────
+$champ_stmt = $conn->prepare("
+    SELECT
+        COUNT(*) AS champ_played,
+        SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) AS champ_won,
+        SUM(CASE WHEN winner_id = ? OR p2_id = ? THEN 1 ELSE 0 END) AS champ_finals,
+        SUM(
+            CASE
+                WHEN winner_id = ? THEN p1_elo_delta
+                WHEN p2_id = ?     THEN p2_elo_delta
+                WHEN p3_id = ?     THEN p3_elo_delta
+                WHEN p4_id = ?     THEN p4_elo_delta
+                ELSE 0
+            END
+        ) AS champ_elo_total
+    FROM championship_matches
+    WHERE p1_id = ? OR p2_id = ? OR p3_id = ? OR p4_id = ?
+");
+$champ_stmt->bind_param("iiiiiiiiiii",
+    $user_id, $user_id, $user_id,
+    $user_id, $user_id, $user_id, $user_id,
+    $user_id, $user_id, $user_id, $user_id
+);
+$champ_stmt->execute();
+$champ_stats = $champ_stmt->get_result()->fetch_assoc();
+
+$champ_played   = (int)($champ_stats['champ_played']   ?? 0);
+$champ_won      = (int)($champ_stats['champ_won']      ?? 0);
+$champ_finals   = (int)($champ_stats['champ_finals']   ?? 0);
+$champ_elo_total= (int)($champ_stats['champ_elo_total']?? 0);
+$champ_winrate  = $champ_played > 0 ? round($champ_won * 100 / $champ_played, 1) : 0;
+
+// ── Stats GLOBALES fusionnées (1v1 + champ) ─────────────────
+$total_games_all = $total_games + $champ_played;
+$victories_all   = $victories + $champ_won;
+$winrate_all     = $total_games_all > 0
+                 ? round($victories_all * 100 / $total_games_all, 1)
+                 : 0;
+
 // ── Rang global ─────────────────────────────────────────────
 $rank_stmt = $conn->prepare("SELECT `rank` FROM leaderboard WHERE id = ?");
 $rank_stmt->bind_param("i", $user_id);
@@ -56,16 +95,60 @@ while ($row = $cat_result->fetch_assoc()) {
     $cat_values[] = round($row['success_rate'], 1);
 }
 
-// ── Historique des 5 dernières parties ──────────────────────
+// ── Historique des 20 dernières parties (1v1 + championship) ──
 $hist_stmt = $conn->prepare("
-    SELECT score, status, game_mode, time_played,
-           correct_answers, total_questions, started_at
-    FROM game_sessions
-    WHERE user_id = ? AND status != 'active'
+    (SELECT
+        'classic'        AS source,
+        score,
+        status,
+        game_mode,
+        time_played,
+        correct_answers,
+        total_questions,
+        difficulty,
+        started_at,
+        NULL             AS champ_rank,
+        NULL             AS champ_elo_delta,
+        NULL             AS room_code
+     FROM game_sessions
+     WHERE user_id = ? AND status != 'active')
+    UNION ALL
+    (SELECT
+        'champ'          AS source,
+        NULL             AS score,
+        'finished'       AS status,
+        'championship'   AS game_mode,
+        NULL             AS time_played,
+        NULL             AS correct_answers,
+        NULL             AS total_questions,
+        NULL             AS difficulty,
+        started_at,
+        CASE
+            WHEN winner_id = ? THEN 1
+            WHEN p2_id = ?     THEN 2
+            WHEN p3_id = ?     THEN 3
+            WHEN p4_id = ?     THEN 4
+            ELSE 0
+        END              AS champ_rank,
+        CASE
+            WHEN winner_id = ? THEN p1_elo_delta
+            WHEN p2_id = ?     THEN p2_elo_delta
+            WHEN p3_id = ?     THEN p3_elo_delta
+            WHEN p4_id = ?     THEN p4_elo_delta
+            ELSE 0
+        END              AS champ_elo_delta,
+        room_code
+     FROM championship_matches
+     WHERE p1_id = ? OR p2_id = ? OR p3_id = ? OR p4_id = ?)
     ORDER BY started_at DESC
-    LIMIT 5
+    LIMIT 20
 ");
-$hist_stmt->bind_param("i", $user_id);
+$hist_stmt->bind_param("iiiiiiiiiiiii",
+    $user_id,                                          // classic
+    $user_id, $user_id, $user_id, $user_id,            // rank champ
+    $user_id, $user_id, $user_id, $user_id,            // elo champ
+    $user_id, $user_id, $user_id, $user_id             // WHERE champ
+);
 $hist_stmt->execute();
 $history = $hist_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -584,7 +667,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   /* ── STAT CARDS ── */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
   }
 
@@ -991,6 +1074,9 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   ::-webkit-scrollbar-thumb { background:var(--g700); border-radius:2px; }
 
   /* ── RESPONSIVE ── */
+  @media(max-width:1400px) {
+    .stats-row { grid-template-columns:repeat(3,1fr); }
+  }
   @media(max-width:1100px) {
     .stats-row { grid-template-columns:repeat(2,1fr); }
     .main-grid { grid-template-columns:1fr; }
@@ -1012,6 +1098,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   .stat-card:nth-child(2) { animation: fadeUp 0.6s var(--ease) 0.22s both; }
   .stat-card:nth-child(3) { animation: fadeUp 0.6s var(--ease) 0.29s both; }
   .stat-card:nth-child(4) { animation: fadeUp 0.6s var(--ease) 0.36s both; }
+  .stat-card:nth-child(5) { animation: fadeUp 0.6s var(--ease) 0.43s both; }
 </style>
 </head>
 <body>
@@ -1040,7 +1127,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Dashboard
     </a>
-    <a class="nav-item" href="game.html">
+    <a class="nav-item" href="game.php">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       Jouer
       <span class="nav-badge">LIVE</span>
@@ -1103,7 +1190,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
     <div class="topbar-right">
       <div class="notif-dot"></div>
       <a href="index.php" class="topbar-btn">Home</a>
-      <a href="game.html" class="topbar-btn primary">⚔ Jouer</a>
+      <a href="game.php" class="topbar-btn primary">⚔ Jouer</a>
     </div>
   </div>
 
@@ -1115,7 +1202,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <div class="welcome-text">
         <div class="welcome-greeting">Bienvenue de retour</div>
         <div class="welcome-name" id="display-name"><?= htmlspecialchars($user['username']) ?></div>
-        <div class="welcome-status">Statut : <span>En ligne</span> · <?= $total_games ?> parties jouées</div>
+        <div class="welcome-status">Statut : <span>En ligne</span> · <?= $total_games_all ?> parties jouées</div>
       </div>
       <div class="rank-badge">
         <div class="rank-badge-label">Rang Global</div>
@@ -1129,15 +1216,17 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <div class="stat-card">
         <div class="stat-icon">⚔</div>
         <div class="stat-label">Parties jouées</div>
-        <div class="stat-value" id="cnt-games"><?= $total_games ?></div>
-        <div class="stat-change neutral">Total depuis le début</div>
+        <div class="stat-value" id="cnt-games"><?= $total_games_all ?></div>
+        <div class="stat-change neutral">
+          <?= $total_games ?> 1v1 · <?= $champ_played ?> champ
+        </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">🏆</div>
         <div class="stat-label">Victoires</div>
-        <div class="stat-value" id="cnt-wins"><?= $victories ?></div>
-        <div class="stat-change <?= $winrate >= 50 ? 'up' : 'down' ?>">
-          <?= $winrate >= 50 ? '↑' : '↓' ?> <?= round($winrate, 1) ?>% winrate
+        <div class="stat-value" id="cnt-wins"><?= $victories_all ?></div>
+        <div class="stat-change <?= $winrate_all >= 50 ? 'up' : 'down' ?>">
+          <?= $winrate_all >= 50 ? '↑' : '↓' ?> <?= $winrate_all ?>% winrate
         </div>
       </div>
       <div class="stat-card">
@@ -1151,6 +1240,20 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
         <div class="stat-label">Meilleur Score</div>
         <div class="stat-value" id="cnt-elo"><?= number_format($best_score) ?></div>
         <div class="stat-change neutral">Temps total : <?= gmdate('H\hi', $total_time) ?></div>
+      </div>
+      <!-- ─── CARTE CHAMPIONNAT (NEW) ─── -->
+      <div class="stat-card" style="border-color: rgba(212,175,55,0.35); background: linear-gradient(135deg, rgba(212,175,55,0.04), transparent);">
+        <div class="stat-icon">👑</div>
+        <div class="stat-label">Championnats</div>
+        <div class="stat-value" style="color:#d4af37"><?= $champ_won ?> / <?= $champ_played ?></div>
+        <div class="stat-change neutral">
+          <?php if ($champ_played > 0): ?>
+            <?= $champ_winrate ?>% winrate ·
+            <?= $champ_elo_total >= 0 ? '+' : '' ?><?= $champ_elo_total ?> ELO
+          <?php else: ?>
+            Aucune partie · <a href="championship/lobby.php" style="color:#d4af37">Jouer</a>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
 
@@ -1221,31 +1324,59 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
             <?php if (empty($history)): ?>
               <div style="padding:32px;text-align:center;color:var(--text3);font-size:0.82rem;letter-spacing:1px;">
                 Aucune partie jouée pour l'instant.<br>
-                <a href="game.html" style="color:var(--g400);text-decoration:none;margin-top:8px;display:inline-block;">⚔ Lancer une partie</a>
+                <a href="game.php" style="color:var(--g400);text-decoration:none;margin-top:8px;display:inline-block;">⚔ Lancer une partie</a>
               </div>
             <?php else: ?>
               <?php foreach ($history as $match):
-                $is_win      = $match['status'] === 'finished' && $match['correct_answers'] >= ($match['total_questions'] / 2);
-                $is_abandoned= $match['status'] === 'abandoned';
-                $result_class= $is_abandoned ? 'loss' : ($is_win ? 'win' : 'loss');
-                $result_label= $is_abandoned ? 'A' : ($is_win ? 'V' : 'D');
-                $accuracy    = $match['total_questions'] > 0
-                               ? round($match['correct_answers'] * 100 / $match['total_questions'])
-                               : 0;
-                $duration    = gmdate('i\ms\s', $match['time_played']);
-                $date        = date('d/m H\hi', strtotime($match['started_at']));
-                $mode_labels = ['solo'=>'Solo','tournoi'=>'Tournoi','rapidite'=>'Rapidité','buzz'=>'Buzz'];
-                $mode        = $mode_labels[$match['game_mode']] ?? $match['game_mode'];
-              ?>
-              <div class="match-row">
-                <div class="match-result <?= $result_class ?>"><?= $result_label ?></div>
-                <div class="match-info">
-                  <div class="match-vs"><?= $mode ?> · <?= $match['difficulty'] ?></div>
-                  <div class="match-map"><?= $date ?> · <?= $duration ?></div>
+                $source = $match['source'] ?? 'classic';
+
+                if ($source === 'champ') {
+                    // ─── Ligne championnat ─────────────────
+                    $rank        = (int)($match['champ_rank'] ?? 0);
+                    $elo_d       = (int)($match['champ_elo_delta'] ?? 0);
+                    $is_win      = ($rank === 1);
+                    $result_class= $is_win ? 'win' : 'loss';
+                    $rank_label  = $rank === 1 ? '1er 🏆' : ($rank === 2 ? '2ème' : ($rank === 3 ? '3ème' : '4ème'));
+                    $result_label= $is_win ? 'V' : 'D';
+                    $date        = date('d/m H\hi', strtotime($match['started_at']));
+                    $mode_disp   = 'Championnat · ' . $rank_label;
+                    $score_disp  = ($elo_d >= 0 ? '+' : '') . $elo_d . ' ELO';
+                    $extra_label = 'Rang';
+                    $extra_value = '#' . $rank;
+                ?>
+                <div class="match-row" style="border-left: 3px solid #d4af37;">
+                  <div class="match-result <?= $result_class ?>"><?= $result_label ?></div>
+                  <div class="match-info">
+                    <div class="match-vs">👑 <?= $mode_disp ?></div>
+                    <div class="match-map"><?= $date ?> · Room <?= htmlspecialchars($match['room_code'] ?? '-') ?></div>
+                  </div>
+                  <div class="match-score" style="color:#d4af37"><?= $score_disp ?></div>
+                  <div class="match-kda"><?= $extra_label ?><br><b><?= $extra_value ?></b></div>
                 </div>
-                <div class="match-score"><?= number_format($match['score']) ?> pts</div>
-                <div class="match-kda">Précision<br><b><?= $accuracy ?>%</b></div>
-              </div>
+                <?php } else {
+                    // ─── Ligne 1v1/solo (comportement original) ─────
+                    $is_win      = $match['status'] === 'finished' && $match['correct_answers'] >= ($match['total_questions'] / 2);
+                    $is_abandoned= $match['status'] === 'abandoned';
+                    $result_class= $is_abandoned ? 'loss' : ($is_win ? 'win' : 'loss');
+                    $result_label= $is_abandoned ? 'A' : ($is_win ? 'V' : 'D');
+                    $accuracy    = $match['total_questions'] > 0
+                                   ? round($match['correct_answers'] * 100 / $match['total_questions'])
+                                   : 0;
+                    $duration    = gmdate('i\ms\s', (int)$match['time_played']);
+                    $date        = date('d/m H\hi', strtotime($match['started_at']));
+                    $mode_labels = ['solo'=>'Solo','tournoi'=>'Tournoi','rapidite'=>'Rapidité','buzz'=>'Buzz','1v1'=>'1v1'];
+                    $mode        = $mode_labels[$match['game_mode']] ?? $match['game_mode'];
+                ?>
+                <div class="match-row">
+                  <div class="match-result <?= $result_class ?>"><?= $result_label ?></div>
+                  <div class="match-info">
+                    <div class="match-vs"><?= $mode ?> · <?= htmlspecialchars($match['difficulty'] ?? '') ?></div>
+                    <div class="match-map"><?= $date ?> · <?= $duration ?></div>
+                  </div>
+                  <div class="match-score"><?= number_format($match['score']) ?> pts</div>
+                  <div class="match-kda">Précision<br><b><?= $accuracy ?>%</b></div>
+                </div>
+                <?php } ?>
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
