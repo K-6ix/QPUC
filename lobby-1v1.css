@@ -245,4 +245,15 @@ body::after {
 @media(max-width:500px) {
     .container, .lobby-screen { padding:16px; }
     .lobby-code { font-size:32px; letter-spacing:8px; }
+    /* ─── Tablette (entre 501px et 1024px) ─── */
+@media (min-width: 501px) and (max-width: 1024px) {
+  .container, .lobby-screen { padding: 24px; }
+  .lobby-code { font-size: 40px; letter-spacing: 10px; }
+}
+
+/* ─── Desktop (plus de 1024px) ─── */
+@media (min-width: 1025px) {
+  .container, .lobby-screen { padding: 32px; max-width: 1200px; margin: 0 auto; }
+  .lobby-code { font-size: 48px; letter-spacing: 12px; }
+}
 }
