@@ -879,7 +879,7 @@ html, body {
     <ul>
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
-      <li><a href="game.html" class="btn-play">▶ Play</a></li>
+      <li><a href="game.php" class="btn-play">▶ Play</a></li>
       <li><a href="#classement">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
     </ul>
@@ -1084,7 +1084,7 @@ html, body {
       <li><a href="connexion.php">Connexion</a></li>
     </ul>
     <div class="footer-cta-col">
-      <a href="game.html" class="footer-play-btn">
+      <a href="game.php" class="footer-play-btn">
         <span class="footer-play-icon">▶</span>
         Jouer maintenant
       </a>

@@ -213,12 +213,17 @@ session_start();
         }
         .card:hover { border-color: rgba(212,175,55,0.35); }
 
-        .card:nth-child(1) { z-index: 1; top: 90px; }
-        .card:nth-child(2) { z-index: 2; top: 106px; }
-        .card:nth-child(3) { z-index: 3; top: 122px; }
-        .card:nth-child(4) { z-index: 4; top: 138px; }
-        .card:nth-child(5) { z-index: 5; top: 154px; }
-        .card:nth-child(6) { z-index: 6; top: 170px; }
+        .card:nth-child(1)  { z-index: 1;  top: 90px;  }
+        .card:nth-child(2)  { z-index: 2;  top: 106px; }
+        .card:nth-child(3)  { z-index: 3;  top: 122px; }
+        .card:nth-child(4)  { z-index: 4;  top: 138px; }
+        .card:nth-child(5)  { z-index: 5;  top: 154px; }
+        .card:nth-child(6)  { z-index: 6;  top: 170px; }
+        .card:nth-child(7)  { z-index: 7;  top: 186px; }
+        .card:nth-child(8)  { z-index: 8;  top: 202px; }
+        .card:nth-child(9)  { z-index: 9;  top: 218px; }
+        .card:nth-child(10) { z-index: 10; top: 234px; }
+        .card:nth-child(11) { z-index: 11; top: 250px; }
 
         /* left: text */
         .card-body {
@@ -343,7 +348,7 @@ session_start();
              <ul>
                 <li><a href="index.php">Home</a></li>
                 <li><a href="rules.php">Rules</a></li>
-                <li><a href="game.html" class="btn-play">▶ Play</a></li>
+                <li><a href="game.php" class="btn-play">▶ Play</a></li>
                 <li><a href="#classement">Classement</a></li>
                 <li><a href="aboutus.php">About Us</a></li>
             </ul>
@@ -448,6 +453,83 @@ session_start();
             </div>
             <div class="card-visual" data-num="06">
                 <span class="card-icon">🧠</span>
+            </div>
+        </div>
+
+        <!-- ═══════════ MODE CHAMPIONNAT ═══════════ -->
+
+        <div class="card">
+            <div class="card-body">
+                <span class="card-number">07 — Mode Championnat</span>
+                <h2 class="card-title">Le grand titre</h2>
+                <p class="card-text">
+                    Le mode ultime : 4 joueurs, 3 manches éliminatoires successives, un seul champion à la fin. Chaque manche éprouve une compétence différente — vitesse, stratégie, sang-froid. À chaque fin de manche, le joueur le moins performant est éliminé. Les deux finalistes s'affrontent au buzz partagé pour le titre suprême.
+                </p>
+                <span class="card-badge">4 joueurs · 3 manches</span>
+            </div>
+            <div class="card-visual" data-num="07">
+                <span class="card-icon">👑</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <span class="card-number">08 — Manche 1</span>
+                <h2 class="card-title">Le 9 points gagnants</h2>
+                <p class="card-text">
+                    Format parallèle façon Kahoot : les 4 joueurs voient la même question et choisissent leur réponse de leur côté. <strong>+1 point</strong> par bonne réponse, <strong>−1 point</strong> par erreur. Le premier à atteindre <strong>9 points</strong> termine la manche, sinon limite à 15 questions. Le joueur avec le pire score est éliminé. En cas d'égalité au dernier rang : barrage en mort subite.
+                </p>
+                <span class="card-badge">Vitesse de réaction</span>
+            </div>
+            <div class="card-visual" data-num="08">
+                <span class="card-icon">⚡</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <span class="card-number">09 — Manche 2</span>
+                <h2 class="card-title">Le pari secret</h2>
+                <p class="card-text">
+                    3 joueurs restants. Avant le duel, chacun choisit 4 catégories : un pool de 4 catégories sera tiré au hasard parmi les choix communs. Puis chaque joueur place un <strong>pari secret</strong> sur une des 8 questions à venir : 1, 2 ou 3 points en jeu. La manche se joue en parallèle (style M1). Si tu trouves la question pariée : <strong>+1 + mise</strong>. Si tu rates : <strong>−1 − mise</strong>. Le pire score est éliminé.
+                </p>
+                <span class="card-badge">Stratégie + paris</span>
+            </div>
+            <div class="card-visual" data-num="09">
+                <span class="card-icon">🎲</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <span class="card-number">10 — Manche 3 finale</span>
+                <h2 class="card-title">Face-à-face au buzz</h2>
+                <p class="card-text">
+                    Les 2 derniers s'affrontent. Comme en M2, choix de catégories et pari secret. Puis 7 questions au <strong>buzz partagé</strong> : 3s pour lire, 3s pour voir les options, puis 12s pour buzzer le premier. Si tu réponds juste : <strong>+1</strong>. Si tu rates : <strong>−1</strong>, et ton adversaire voit ta mauvaise réponse en rouge avant son tour de buzzer. Le premier à <strong>8 points</strong> remporte le titre, sinon meilleur score après 7 questions. Égalité : mort subite.
+                </p>
+                <span class="card-badge">Buzz · Cible 8 pts</span>
+            </div>
+            <div class="card-visual" data-num="10">
+                <span class="card-icon">🏆</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <span class="card-number">11 — ELO Championnat</span>
+                <h2 class="card-title">Récompenses et classement</h2>
+                <p class="card-text">
+                    Chaque championnat impacte votre ELO selon votre rang final :
+                    <br>🥇 <strong>1er (Champion)</strong> : <span style="color:#4caf50;">+50 ELO</span>
+                    <br>🥈 <strong>2ème (Finaliste)</strong> : <span style="color:#4caf50;">+30 ELO</span>
+                    <br>🥉 <strong>3ème (Éliminé M2)</strong> : <span style="color:#999;">0 ELO</span>
+                    <br>4ème <strong>(Éliminé M1)</strong> : <span style="color:#e54848;">−20 ELO</span>
+                    <br><br>Ces points s'ajoutent à votre ELO global. <strong>Un seul classement</strong> regroupe toutes les parties (1v1, championnat, etc.).
+                </p>
+                <span class="card-badge">Système ELO</span>
+            </div>
+            <div class="card-visual" data-num="11">
+                <span class="card-icon">📊</span>
             </div>
         </div>
 

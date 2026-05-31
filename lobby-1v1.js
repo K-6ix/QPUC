@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════
    QPC — Lobby 1v1 (logique côté client)
    ★ FIX BUG 1 :
-   La redirection vers game-1v1.html se fait DÈS la réception de
+   La redirection vers game-1v1.php se fait DÈS la réception de
    `start_countdown` (avant que le serveur ne lance la moindre
    question). Le serveur attend ensuite que les 2 joueurs aient
    rejoint la page de jeu (via rejoin_room) avant de lancer le
@@ -105,7 +105,7 @@ function init() {
 
     // ★ FIX BUG 1 : on redirige DÈS qu'on reçoit start_countdown.
     // Le serveur ne lance la 1ère question qu'une fois que les 2
-    // sont reconnectés sur game-1v1.html → plus de question perdue.
+    // sont reconnectés sur game-1v1.php → plus de question perdue.
     socket.on('start_countdown', () => {
         if (redirecting) return;
         redirecting = true;
@@ -118,7 +118,7 @@ function init() {
 
         // Petit délai pour laisser l'utilisateur lire le message
         setTimeout(() => {
-            window.location.href = `game-1v1.html?room=${roomCode}`;
+            window.location.href = `game-1v1.php?room=${roomCode}`;
         }, 400);
     });
 }

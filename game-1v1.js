@@ -64,7 +64,7 @@ function $(id) { return document.getElementById(id); }
 function init() {
     if (!ROOM_CODE) {
         alert('Code de room manquant. Retour au lobby.');
-        location.href = 'lobby-1v1.html';
+        location.href = 'lobby-1v1.php';
         return;
     }
 
@@ -126,6 +126,7 @@ function init() {
     socket.on('rematch_pending',  onRematchPending);
     socket.on('rematch_ready',    onRematchReady);
     socket.on('player_left',      onPlayerLeft);
+    socket.on('state_resync',     onStateResync);
     socket.on('error',            ({ message }) => alert(message));
 }
 
@@ -138,15 +139,73 @@ function onGameState({ players: scores, status }) {
     updateScores(scores, POINTS_TO_WIN);
 }
 
+// ── Reconnexion mid-game : reconstruction de l'état ──
+function onStateResync(data) {
+    console.log('🔄 state_resync | phase:', data.phase);
+
+    // Mettre à jour les scores
+    if (data.scores) {
+        updatePlayersInfo(data.scores);
+        updateScores(data.scores, POINTS_TO_WIN);
+    }
+
+    // Si la partie est en cours et qu'on a une question active
+    if (['question', 'buzz', 'answer'].includes(data.phase) && data.question) {
+        // Cacher countdown
+        $('countdown-overlay').classList.add('hidden');
+
+        // Afficher la question
+        $('q-counter').textContent = `Q ${(data.currentQ || 0) + 1}/10`;
+        $('cat-icon').textContent  = data.question.catIcon || '🎲';
+        $('cat-label').textContent = data.question.catLabel || '—';
+        $('question-text').textContent = data.question.question;
+
+        // Afficher les options si la phase le permet
+        if (data.phase !== 'question') {
+            renderOptions(data.question.options);
+            timerMax  = data.question.time;
+            timerLeft = data.timerLeft || 0;
+            updateTimerUI();
+        }
+
+        // État du buzz
+        buzzedBy = data.buzzedBy || null;
+        buzzOpen = data.buzzOpen || false;
+        answered = data.answered || false;
+
+        if (buzzOpen && !buzzedBy) {
+            setBuzzState('active');
+            $('buzz-status').textContent = 'BUZZ !';
+            $('buzz-status').className   = 'buzz-status active-msg';
+        } else if (buzzedBy) {
+            if (buzzedBy === PLAYER_ID) {
+                setBuzzState('my-buzz');
+                enableOptions();
+            } else {
+                setBuzzState('opponent-buzz');
+                disableOptions();
+            }
+        } else {
+            setBuzzState('locked');
+        }
+    } else if (data.phase === 'gameover') {
+        // Si on reconnecte après game over — le server émettra game_over séparément
+        console.log('🔄 Resync: partie terminée');
+    }
+}
+
 function onCountdown({ count }) {
     const overlay = $('countdown-overlay');
     const num     = $('countdown-number');
     overlay.classList.remove('hidden');
     num.textContent = count;
-    // Reset de l'animation pour la rejouer
+    // Reset animation via double-rAF (évite forced reflow synchrone)
     num.style.animation = 'none';
-    void num.offsetWidth;
-    num.style.animation = '';
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            num.style.animation = '';
+        });
+    });
 }
 
 function onQuestionText({ index, total, question, catLabel, catIcon, difficulty, scores, pointsToWin }) {

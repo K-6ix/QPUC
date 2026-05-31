@@ -1,0 +1,164 @@
+<?php
+session_start();
+require "db.php";
+
+// ── Auth ────────────────────────────────────────────────────
+if (!isset($_SESSION['user_id'])) {
+    header("Location: connexion.php");
+    exit;
+}
+
+$user_id = (int) $_SESSION['user_id'];
+
+$stmt = $conn->prepare("SELECT username, profile_pic FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
+
+if (!$user) {
+    session_destroy();
+    header("Location: connexion.php");
+    exit;
+}
+
+$username    = $user['username'];
+$profile_pic = $user['profile_pic'] ?? '';
+
+// ELO depuis player_stats
+$elo = 1200;
+$res = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
+$res->bind_param("i", $user_id);
+$res->execute();
+$row = $res->get_result()->fetch_assoc();
+if ($row && isset($row['elo'])) {
+    $elo = (int) $row['elo'];
+}
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QPC — 1v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lobby-1v1.css">
+</head>
+<body>
+
+<a href="dashboard.php" class="back-btn"><span>←</span><span>Retour</span></a>
+<div class="logo-wrap">QPC</div>
+
+<!-- ─── Écran "connexion au serveur" ─── -->
+<div class="connecting-wrap" id="connecting">
+    <div class="spinner"></div>
+    <div class="connecting-text">Connexion au serveur…</div>
+</div>
+
+<!-- ─── Écran principal (créer / rejoindre) ─── -->
+<div class="container" id="main-screen" style="display:none;">
+    <div class="title-wrap">
+        <div class="vs-badge">
+            <div class="vs-line"></div>
+            <div class="vs-text">1 v 1</div>
+            <div class="vs-line"></div>
+        </div>
+        <div class="title-sub">Duel en temps réel</div>
+    </div>
+
+    <div class="elo-display" style="width:100%;">
+        <div>
+            <div class="elo-label">Votre ELO</div>
+            <div class="elo-value" id="my-elo">1200</div>
+        </div>
+        <div class="elo-division" id="my-division">Division 3</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><span>⚔️</span> Créer une room</div>
+        <div class="input-group">
+            <div class="input-label">Votre pseudo</div>
+            <input class="input-field" type="text" id="create-name" placeholder="Entrez votre pseudo" maxlength="20" value="<?= htmlspecialchars($username) ?>" readonly>
+        </div>
+        <button class="btn btn-primary" id="btn-create">CRÉER LA ROOM</button>
+    </div>
+
+    <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">ou</div>
+        <div class="divider-line"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><span>🎯</span> Rejoindre une room</div>
+        <div class="input-group">
+            <div class="input-label">Votre pseudo</div>
+            <input class="input-field" type="text" id="join-name" placeholder="Entrez votre pseudo" maxlength="20" value="<?= htmlspecialchars($username) ?>" readonly>
+        </div>
+        <div class="input-group">
+            <div class="input-label">Code de la room</div>
+            <input class="input-field code-input" type="text" id="join-code" placeholder="A7K2" maxlength="4">
+        </div>
+        <div class="error-msg" id="error-msg">Room introuvable.</div>
+        <button class="btn btn-primary" id="btn-join">REJOINDRE</button>
+    </div>
+</div>
+
+<!-- ─── Écran lobby ─── -->
+<div class="lobby-screen" id="lobby-screen">
+    <div class="title-wrap">
+        <div class="vs-badge">
+            <div class="vs-line"></div>
+            <div class="vs-text">LOBBY</div>
+            <div class="vs-line"></div>
+        </div>
+    </div>
+
+    <div class="lobby-code-wrap">
+        <div class="lobby-code-label">Code de la room</div>
+        <div class="lobby-code" id="lobby-code-display">—</div>
+        <div class="copy-hint" id="copy-hint">📋 Copier le code</div>
+    </div>
+
+    <div class="players-wrap">
+        <div class="player-slot filled" id="slot-1">
+            <div class="player-avatar" id="avatar-1">?</div>
+            <div class="player-name" id="name-1">—</div>
+            <div class="player-elo" id="elo-1">— ELO</div>
+        </div>
+        <div class="player-slot" id="slot-2">
+            <div class="player-avatar" id="avatar-2">?</div>
+            <div class="player-name" id="name-2">En attente</div>
+            <div class="waiting-dots">
+                <div class="waiting-dot"></div>
+                <div class="waiting-dot"></div>
+                <div class="waiting-dot"></div>
+            </div>
+        </div>
+        <div class="vs-sep">VS</div>
+    </div>
+
+    <div class="lobby-status" id="lobby-status">En attente du <span>2ème joueur</span>…</div>
+    <button class="btn btn-primary" id="start-btn" disabled>LANCER LA PARTIE</button>
+    <button class="btn btn-secondary" id="leave-btn">Quitter</button>
+</div>
+
+<!-- Scripts -->
+<script>
+window.QPC_USER = {
+    id:       <?= (int) $user_id ?>,
+    username: <?= json_encode($username, JSON_UNESCAPED_UNICODE) ?>,
+    elo:      <?= (int) $elo ?>
+};
+// Sync vers localStorage pour que la logique existante du lobby/jeu reste fonctionnelle
+try {
+    localStorage.setItem('qpc_name', window.QPC_USER.username);
+    localStorage.setItem('qpc_elo',  String(window.QPC_USER.elo));
+    // PlayerId stable basé sur user_id BDD (au lieu d'un UUID random)
+    localStorage.setItem('qpc_player_id', 'u' + window.QPC_USER.id);
+} catch (e) {}
+</script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="lobby-1v1.js"></script>
+
+</body>
+</html>
