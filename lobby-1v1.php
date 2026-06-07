@@ -2,36 +2,49 @@
 session_start();
 require "db.php";
 
-// ── Auth ────────────────────────────────────────────────────
-if (!isset($_SESSION['user_id'])) {
+// ── Mode amical (passé via ?friendly=1 depuis game.php) ─────
+// Le mode amical NE REQUIERT PAS de compte (guest play autorisé)
+$is_friendly = isset($_GET['friendly']) && $_GET['friendly'] === '1';
+
+// ── Auth conditionnelle : obligatoire SAUF en mode amical ──
+if (!$is_friendly && !isset($_SESSION['user_id'])) {
     header("Location: connexion.php");
     exit;
 }
 
-$user_id = (int) $_SESSION['user_id'];
+// ── Defaults guest ──────────────────────────────────────────
+$user_id     = null;
+$username    = '';
+$profile_pic = '';
+$elo         = 1200;
+$is_guest    = !isset($_SESSION['user_id']);
 
-$stmt = $conn->prepare("SELECT username, profile_pic FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
+if (!$is_guest) {
+    // Utilisateur connecté : on récupère ses infos depuis la BDD
+    $user_id = (int) $_SESSION['user_id'];
 
-if (!$user) {
-    session_destroy();
-    header("Location: connexion.php");
-    exit;
-}
+    $stmt = $conn->prepare("SELECT username, profile_pic FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
 
-$username    = $user['username'];
-$profile_pic = $user['profile_pic'] ?? '';
+    if (!$user) {
+        session_destroy();
+        header("Location: connexion.php");
+        exit;
+    }
 
-// ELO depuis player_stats
-$elo = 1200;
-$res = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
-$res->bind_param("i", $user_id);
-$res->execute();
-$row = $res->get_result()->fetch_assoc();
-if ($row && isset($row['elo'])) {
-    $elo = (int) $row['elo'];
+    $username    = $user['username'];
+    $profile_pic = $user['profile_pic'] ?? '';
+
+    // ELO depuis player_stats
+    $res = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
+    $res->bind_param("i", $user_id);
+    $res->execute();
+    $row = $res->get_result()->fetch_assoc();
+    if ($row && isset($row['elo'])) {
+        $elo = (int) $row['elo'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -39,13 +52,47 @@ if ($row && isset($row['elo'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QPC — 1v1</title>
+<title>QPC — 1v1<?= $is_friendly ? ' (Amical)' : '' ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lobby-1v1.css">
+
+<style>
+/* Badge mode amical (visible uniquement quand ?friendly=1) */
+.friendly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(109, 184, 255, 0.12);
+    border: 1px solid rgba(109, 184, 255, 0.4);
+    color: #6db8ff;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 auto 1rem;
+}
+.friendly-badge::before { content: '🎉'; font-size: 1rem; }
+
+.guest-notice {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.78rem;
+    text-align: center;
+    margin: 0.8rem auto 1rem;
+    max-width: 380px;
+    line-height: 1.5;
+}
+.guest-notice a {
+    color: var(--gold, #d4af37);
+    text-decoration: none;
+    border-bottom: 1px dashed currentColor;
+}
+</style>
 </head>
 <body>
 
-<a href="dashboard.php" class="back-btn"><span>←</span><span>Retour</span></a>
+<a href="<?= $is_guest ? 'game.php' : 'dashboard.php' ?>" class="back-btn"><span>←</span><span>Retour</span></a>
 <div class="logo-wrap">QPC</div>
 
 <!-- ─── Écran "connexion au serveur" ─── -->
@@ -56,29 +103,45 @@ if ($row && isset($row['elo'])) {
 
 <!-- ─── Écran principal (créer / rejoindre) ─── -->
 <div class="container" id="main-screen" style="display:none;">
+    <?php if ($is_friendly): ?>
+        <div class="friendly-badge">Salon amical · ELO non affecté</div>
+    <?php endif; ?>
+    <?php if ($is_guest): ?>
+        <div class="guest-notice">
+            Tu joues en invité — choisis un pseudo et lance la partie.
+            <br>Tu préfères garder ton historique ? <a href="connexion.php">Connecte-toi</a>.
+        </div>
+    <?php endif; ?>
     <div class="title-wrap">
         <div class="vs-badge">
             <div class="vs-line"></div>
-            <div class="vs-text">1 v 1</div>
+            <div class="vs-text">1 v 1<?= $is_friendly ? ' AMICAL' : '' ?></div>
             <div class="vs-line"></div>
         </div>
-        <div class="title-sub">Duel en temps réel</div>
+        <div class="title-sub"><?= $is_friendly ? 'Duel sans pression · L\'ELO ne bouge pas' : 'Duel en temps réel' ?></div>
     </div>
 
+    <?php if (!$is_guest): ?>
     <div class="elo-display" style="width:100%;">
         <div>
             <div class="elo-label">Votre ELO</div>
-            <div class="elo-value" id="my-elo">1200</div>
+            <div class="elo-value" id="my-elo"><?= (int)$elo ?></div>
         </div>
         <div class="elo-division" id="my-division">Division 3</div>
     </div>
+    <?php endif; ?>
 
     <div class="card">
         <div class="card-title"><span>⚔️</span> Créer une room</div>
+        <?php if (!$is_guest): ?>
         <div class="input-group">
             <div class="input-label">Votre pseudo</div>
             <input class="input-field" type="text" id="create-name" placeholder="Entrez votre pseudo" maxlength="20" value="<?= htmlspecialchars($username) ?>" readonly>
         </div>
+        <?php else: ?>
+        <input type="hidden" id="create-name" value="">
+        <div class="guest-notice" style="margin: 0 0 0.8rem;">Tu seras nommé <strong style="color:#6db8ff;">Joueur 1</strong></div>
+        <?php endif; ?>
         <button class="btn btn-primary" id="btn-create">CRÉER LA ROOM</button>
     </div>
 
@@ -90,10 +153,15 @@ if ($row && isset($row['elo'])) {
 
     <div class="card">
         <div class="card-title"><span>🎯</span> Rejoindre une room</div>
+        <?php if (!$is_guest): ?>
         <div class="input-group">
             <div class="input-label">Votre pseudo</div>
             <input class="input-field" type="text" id="join-name" placeholder="Entrez votre pseudo" maxlength="20" value="<?= htmlspecialchars($username) ?>" readonly>
         </div>
+        <?php else: ?>
+        <input type="hidden" id="join-name" value="">
+        <div class="guest-notice" style="margin: 0 0 0.8rem;">Tu seras nommé <strong style="color:#6db8ff;">Joueur 2</strong></div>
+        <?php endif; ?>
         <div class="input-group">
             <div class="input-label">Code de la room</div>
             <input class="input-field code-input" type="text" id="join-code" placeholder="A7K2" maxlength="4">
@@ -144,18 +212,35 @@ if ($row && isset($row['elo'])) {
 
 <!-- Scripts -->
 <script>
+// ── Flag amical (injecté depuis $_GET['friendly']) ──
+window.QPC_FRIENDLY = <?= $is_friendly ? 'true' : 'false' ?>;
+
+<?php if (!$is_guest): ?>
 window.QPC_USER = {
     id:       <?= (int) $user_id ?>,
     username: <?= json_encode($username, JSON_UNESCAPED_UNICODE) ?>,
     elo:      <?= (int) $elo ?>
 };
-// Sync vers localStorage pour que la logique existante du lobby/jeu reste fonctionnelle
 try {
     localStorage.setItem('qpc_name', window.QPC_USER.username);
     localStorage.setItem('qpc_elo',  String(window.QPC_USER.elo));
     // PlayerId stable basé sur user_id BDD (au lieu d'un UUID random)
     localStorage.setItem('qpc_player_id', 'u' + window.QPC_USER.id);
 } catch (e) {}
+<?php else: ?>
+// Mode invité : pas de QPC_USER, pas de player_id stable.
+// Le lobby-1v1.js générera un UUID aléatoire au premier passage,
+// et stockera le pseudo saisi dans localStorage côté JS.
+window.QPC_USER = null;
+try {
+    // Force un nouvel UUID pour les guests (évite de réutiliser un ancien 'u123')
+    if ((localStorage.getItem('qpc_player_id') || '').startsWith('u')) {
+        localStorage.removeItem('qpc_player_id');
+    }
+    localStorage.removeItem('qpc_name');  // laisse l'utilisateur choisir
+    localStorage.setItem('qpc_elo', '1200');
+} catch (e) {}
+<?php endif; ?>
 </script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="lobby-1v1.js"></script>

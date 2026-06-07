@@ -61,6 +61,13 @@ function $(id) { return document.getElementById(id); }
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
+
+// ── Helper : URL de retour selon l'état de l'utilisateur ──
+// Les guests n'ont pas accès au dashboard → on les renvoie vers game.php
+function returnUrl() {
+    return window.QPC_USER ? 'dashboard.php' : 'game.php';
+}
+
 function init() {
     if (!ROOM_CODE) {
         alert('Code de room manquant. Retour au lobby.');
@@ -73,7 +80,7 @@ function init() {
     $('abandon-btn').addEventListener('click', confirmAbandon);
     $('rematch-btn').addEventListener('click', onRematchClick);
     $('dashboard-btn').addEventListener('click', () => {
-        location.href = 'dashboard.php';
+        location.href = returnUrl();
     });
 
     // ─── Clavier : n'importe quelle touche = buzz ───
@@ -394,9 +401,13 @@ function onAnswer(chosen) {
 }
 
 function confirmAbandon() {
-    if (confirm('Abandonner la partie ? Vous perdrez des points ELO.')) {
+    // Message adapté : pas de mention ELO en mode amical
+    const msg = window.QPC_FRIENDLY
+        ? 'Abandonner la partie ?'
+        : 'Abandonner la partie ? Vous perdrez des points ELO.';
+    if (confirm(msg)) {
         socket.disconnect();
-        location.href = 'dashboard.php';
+        location.href = returnUrl();
     }
 }
 

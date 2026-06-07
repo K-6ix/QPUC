@@ -2,35 +2,45 @@
 session_start();
 require "db.php";
 
-// ── Auth ────────────────────────────────────────────────────
-if (!isset($_SESSION['user_id'])) {
+// ── Mode amical (passé via &friendly=1 depuis lobby-1v1.php) ─
+$is_friendly = isset($_GET['friendly']) && $_GET['friendly'] === '1';
+
+// ── Auth conditionnelle : obligatoire SAUF en mode amical ──
+if (!$is_friendly && !isset($_SESSION['user_id'])) {
     header("Location: connexion.php");
     exit;
 }
 
-$user_id = (int) $_SESSION['user_id'];
+// ── Defaults guest ─────────────────────────────────────────
+$user_id  = null;
+$username = '';
+$elo      = 1200;
+$is_guest = !isset($_SESSION['user_id']);
 
-$stmt = $conn->prepare("SELECT username, profile_pic FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
+if (!$is_guest) {
+    $user_id = (int) $_SESSION['user_id'];
 
-if (!$user) {
-    session_destroy();
-    header("Location: connexion.php");
-    exit;
-}
+    $stmt = $conn->prepare("SELECT username, profile_pic FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
 
-$username = $user['username'];
+    if (!$user) {
+        session_destroy();
+        header("Location: connexion.php");
+        exit;
+    }
 
-// ELO depuis player_stats
-$elo = 1200;
-$res = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
-$res->bind_param("i", $user_id);
-$res->execute();
-$row = $res->get_result()->fetch_assoc();
-if ($row && isset($row['elo'])) {
-    $elo = (int) $row['elo'];
+    $username = $user['username'];
+
+    // ELO depuis player_stats
+    $res = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
+    $res->bind_param("i", $user_id);
+    $res->execute();
+    $row = $res->get_result()->fetch_assoc();
+    if ($row && isset($row['elo'])) {
+        $elo = (int) $row['elo'];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -194,6 +204,10 @@ if ($row && isset($row['elo'])) {
 
 <!-- Scripts -->
 <script>
+// ── Flag amical (récupéré depuis l'URL pour les redirections directes) ──
+window.QPC_FRIENDLY = <?= $is_friendly ? 'true' : 'false' ?>;
+
+<?php if (!$is_guest): ?>
 window.QPC_USER = {
     id:       <?= (int) $user_id ?>,
     username: <?= json_encode($username, JSON_UNESCAPED_UNICODE) ?>,
@@ -204,6 +218,10 @@ try {
     localStorage.setItem('qpc_elo',  String(window.QPC_USER.elo));
     localStorage.setItem('qpc_player_id', 'u' + window.QPC_USER.id);
 } catch (e) {}
+<?php else: ?>
+// Mode invité : tout est déjà dans localStorage (set par le lobby)
+window.QPC_USER = null;
+<?php endif; ?>
 </script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="game-1v1.js"></script>

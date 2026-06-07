@@ -70,12 +70,13 @@ $winrate_all     = $total_games_all > 0
                  ? round($victories_all * 100 / $total_games_all, 1)
                  : 0;
 
-// ── Rang global ─────────────────────────────────────────────
-$rank_stmt = $conn->prepare("SELECT `rank` FROM leaderboard WHERE id = ?");
+// ── Rang global + ELO ───────────────────────────────────────
+$rank_stmt = $conn->prepare("SELECT `rank`, elo FROM leaderboard WHERE id = ?");
 $rank_stmt->bind_param("i", $user_id);
 $rank_stmt->execute();
 $rank_row = $rank_stmt->get_result()->fetch_assoc();
 $global_rank = $rank_row['rank'] ?? '—';
+$user_elo    = (int)($rank_row['elo'] ?? 1200);
 
 // ── Stats par catégorie (pour le radar) ─────────────────────
 $cat_stmt = $conn->prepare("
@@ -1207,7 +1208,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       <div class="rank-badge">
         <div class="rank-badge-label">Rang Global</div>
         <div class="rank-badge-value">#<?= $global_rank ?></div>
-        <div class="rank-badge-sub">Meilleur score : <?= number_format($best_score) ?></div>
+        <div class="rank-badge-sub">Meilleur ELO : <?= number_format($user_elo) ?></div>
       </div>
     </div>
 
@@ -1237,8 +1238,8 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
       </div>
       <div class="stat-card">
         <div class="stat-icon">💎</div>
-        <div class="stat-label">Meilleur Score</div>
-        <div class="stat-value" id="cnt-elo"><?= number_format($best_score) ?></div>
+        <div class="stat-label">Meilleur ELO</div>
+        <div class="stat-value" id="cnt-elo"><?= number_format($user_elo) ?></div>
         <div class="stat-change neutral">Temps total : <?= gmdate('H\hi', $total_time) ?></div>
       </div>
       <!-- ─── CARTE CHAMPIONNAT (NEW) ─── -->
@@ -1512,7 +1513,7 @@ function animCount(el, target, duration, decimals=0, suffix='') {
 setTimeout(()=>{
   animCount(document.getElementById('cnt-games'), <?= $total_games ?>, 1200);
   animCount(document.getElementById('cnt-wins'),  <?= $victories ?>, 1200);
-  animCount(document.getElementById('cnt-elo'),   <?= $best_score ?>, 1400);
+  animCount(document.getElementById('cnt-elo'),   <?= $user_elo ?>, 1400);
 },300);
 
 /* ── PROGRESS BARS ── */

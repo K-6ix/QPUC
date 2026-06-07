@@ -482,7 +482,7 @@ function endGame(roomCode, winnerId) {
     const loser  = Object.values(room.players).find(p => p.id !== winnerId);
 
     let eloResult = null;
-    if (winner && loser) {
+    if (winner && loser && room.isRanked) {
         const { newWinner, newLoser, winPts, lossPts } = applyElo(winner.elo, loser.elo);
         eloResult = {
             [winner.id]: { oldElo: winner.elo, newElo: newWinner, delta:  winPts },
@@ -494,6 +494,9 @@ function endGame(roomCode, winnerId) {
 
         // Persister en BDD (ELO + stats de partie)
         persistElo(room, winnerId, eloResult);
+    } else if (winner && loser) {
+        // Partie amicale : on log mais on ne touche pas à l'ELO en BDD
+        console.log(`🎉 [AMICAL] ${winner.name} bat ${loser.name} — pas de changement ELO`);
     }
 
     io.to(roomCode).emit('game_over', {
@@ -523,17 +526,20 @@ io.on('connection', (socket) => {
     console.log(`🔌 [connect] ${socket.id}`);
 
     // ── CRÉER ──
-    socket.on('create_room', ({ playerId, name, elo }) => {
+    socket.on('create_room', ({ playerId, name, elo, isRanked }) => {
         if (!playerId) { socket.emit('error', { message: 'playerId manquant' }); return; }
 
         const playerName = (name || 'Joueur').trim().slice(0, 20);
         const playerElo  = parseInt(elo) || ELO.START;
+        // ── Flag classé/amical : true par défaut (sécurité, ne change rien à l'existant)
+        const ranked     = isRanked !== false;
 
         let code;
         do { code = generateCode(); } while (rooms.has(code));
 
         const room = {
             code, status: 'lobby',
+            isRanked: ranked,
             players: {
                 [playerId]: {
                     id: playerId, socketId: socket.id,
@@ -560,8 +566,8 @@ io.on('connection', (socket) => {
         rooms.set(code, room);
         socket.join(code);
 
-        socket.emit('room_created', { code, players: getPublicScores(room) });
-        console.log(`🏠 Room "${code}" créée par ${playerName}`);
+        socket.emit('room_created', { code, players: getPublicScores(room), isRanked: room.isRanked });
+        console.log(`🏠 Room "${code}" créée par ${playerName} ${room.isRanked ? '[CLASSÉ]' : '[AMICAL]'}`);
     });
 
     // ── REJOINDRE ──
@@ -585,10 +591,10 @@ io.on('connection', (socket) => {
         };
 
         socket.join(roomCode);
-        socket.emit('room_joined', { code: roomCode, players: getPublicScores(room) });
+        socket.emit('room_joined', { code: roomCode, players: getPublicScores(room), isRanked: room.isRanked });
         io.to(roomCode).emit('player_joined', { players: getPublicScores(room) });
 
-        console.log(`✅ ${playerName} a rejoint "${roomCode}"`);
+        console.log(`✅ ${playerName} a rejoint "${roomCode}" ${room.isRanked ? '[CLASSÉ]' : '[AMICAL]'}`);
     });
 
     // ──────────────────────────────────────────────────────────────

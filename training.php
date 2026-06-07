@@ -1,9 +1,10 @@
+<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Question pour un Champion — Jeu</title>
+<title>Entraînement — Question Champion</title>
 
 <!-- ════ ANTI-FLASH : applique le thème global avant le render ════ -->
 <script>
@@ -559,74 +560,8 @@ body::before {
     line-height:1.8;
 }
 
-/* Mode selector */
-.mode-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
-    gap:14px;
-    width:100%;
-    max-width:600px;
-}
-.mode-card {
-    background:var(--bg3);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:20px 16px;
-    cursor:pointer;
-    text-align:center;
-    transition:all .2s;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:8px;
-}
-.mode-card:hover, .mode-card.selected {
-    border-color:var(--gold);
-    background:var(--gold-dim);
-    transform:translateY(-3px);
-}
-.mode-icon { font-size:28px; }
-.mode-name {
-    font-family:'Cinzel', serif;
-    font-size:13px;
-    font-weight:600;
-    color:var(--text1);
-    letter-spacing:1px;
-}
-.mode-desc {
-    font-size:11px;
-    color:var(--text3);
-    line-height:1.5;
-}
-
-/* Category selector */
-.cat-grid {
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    justify-content:center;
-    max-width:600px;
-}
-.cat-chip {
-    padding:8px 16px;
-    border-radius:20px;
-    border:1px solid var(--border);
-    background:var(--bg3);
-    cursor:pointer;
-    font-size:12px;
-    font-weight:600;
-    color:var(--text2);
-    transition:all .2s;
-    display:flex;
-    align-items:center;
-    gap:6px;
-}
-.cat-chip:hover, .cat-chip.selected {
-    border-color:var(--gold);
-    color:var(--gold);
-    background:var(--gold-dim);
-}
-.cat-chip.all-cats { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+/* Note : .mode-grid / .mode-card / .cat-grid / .cat-chip retirés
+   (remplacés par .training-cat-grid / .training-cat-card en fin de fichier) */
 
 .start-btn {
     padding:16px 48px;
@@ -825,53 +760,195 @@ body::before {
     from { transform:translate(0,0) scale(1); opacity:1; }
     to   { transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; }
 }
+
+/* ══════════════════════════════════════════════════
+   MODE ENTRAÎNEMENT — Start screen spécifique
+══════════════════════════════════════════════════ */
+.train-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border: 1px solid var(--gold);
+    background: var(--gold-dim);
+    border-radius: 30px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold-text);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+}
+.train-badge span { font-size: 14px; }
+
+.training-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: 100%;
+    max-width: 780px;
+    margin-bottom: 36px;
+}
+
+.training-cat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 24px 18px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .25s, background .25s, transform .25s, box-shadow .25s;
+    position: relative;
+    overflow: hidden;
+}
+.training-cat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+}
+.training-cat-card:hover {
+    border-color: var(--border2);
+    background: var(--gold-dim);
+    transform: translateY(-3px);
+}
+.training-cat-card:hover::before { opacity: 0.5; }
+
+.training-cat-card.selected {
+    border-color: var(--gold);
+    background: var(--gold-dim);
+    box-shadow: 0 0 22px rgba(212,175,55,0.18);
+}
+.training-cat-card.selected::before { opacity: 1; }
+
+.training-cat-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    color: var(--gold-text);
+    font-size: 14px;
+}
+
+.tc-icon {
+    font-size: 34px;
+    margin-bottom: 10px;
+    line-height: 1;
+    filter: drop-shadow(0 0 10px rgba(212,175,55,0.15));
+}
+.tc-name {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text1);
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+}
+.tc-desc {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: .2px;
+    line-height: 1.5;
+}
+
+.back-link {
+    margin-top: 22px;
+    color: var(--text3);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color .2s;
+}
+.back-link:hover { color: var(--gold-text); }
+
+/* Responsive training cards */
+@media (max-width: 900px) {
+    .training-cat-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 600px; }
+    .training-cat-card { padding: 20px 14px; }
+}
+@media (max-width: 600px) {
+    .training-cat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .training-cat-card { padding: 18px 14px; }
+    .tc-icon { font-size: 28px; margin-bottom: 8px; }
+    .tc-name { font-size: 12.5px; }
+    .tc-desc { font-size: 10.5px; }
+    .train-badge { font-size: 10px; letter-spacing: 2px; padding: 5px 14px; margin-bottom: 18px; }
+}
+@media (max-width: 380px) {
+    .training-cat-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .training-cat-card { padding: 14px 10px; }
+    .tc-icon { font-size: 24px; }
+    .tc-name { font-size: 11.5px; }
+    .tc-desc { font-size: 10px; }
+}
 </style>
 </head>
 <body>
 
 <!-- ═══ START SCREEN ═══ -->
 <div class="screen" id="start-screen">
-    <div class="start-title">Question pour<br>un Champion</div>
-    <p class="start-sub">Testez vos connaissances, battez des records et grimpez dans le classement mondial.</p>
+    <div class="train-badge"><span>🎯</span> Mode Entraînement</div>
+    <div class="start-title">Choisissez votre<br>terrain d'entraînement</div>
+    <p class="start-sub">Sélectionnez une catégorie pour commencer. Aucun classement, aucune pression — juste de la pratique pour progresser.</p>
 
-    <div class="section-title">Choisissez un mode</div>
-    <div class="mode-grid">
-        <div class="mode-card selected" data-mode="solo" onclick="selectMode(this)">
-            <div class="mode-icon">⚔️</div>
-            <div class="mode-name">Solo</div>
-            <div class="mode-desc">10 questions, votre rythme</div>
+    <div class="training-cat-grid">
+        <div class="training-cat-card selected" data-cat="all" onclick="selectCat(this)">
+            <div class="tc-icon">🎲</div>
+            <div class="tc-name">Toutes catégories</div>
+            <div class="tc-desc">Mélange de toutes les disciplines</div>
         </div>
-        <div class="mode-card" data-mode="rapidite" onclick="selectMode(this)">
-            <div class="mode-icon">⚡</div>
-            <div class="mode-name">Rapidité</div>
-            <div class="mode-desc">Bonus vitesse × temps</div>
+        <div class="training-cat-card" data-cat="sciences" onclick="selectCat(this)">
+            <div class="tc-icon">🔬</div>
+            <div class="tc-name">Sciences &amp; Nature</div>
+            <div class="tc-desc">Physique, chimie, biologie</div>
         </div>
-        <div class="mode-card" data-mode="tournoi" onclick="selectMode(this)">
-            <div class="mode-icon">🏆</div>
-            <div class="mode-name">Tournoi</div>
-            <div class="mode-desc">Éliminations progressives</div>
+        <div class="training-cat-card" data-cat="informatique" onclick="selectCat(this)">
+            <div class="tc-icon">💻</div>
+            <div class="tc-name">Informatique</div>
+            <div class="tc-desc">Tech, code, algorithmes</div>
         </div>
-        <div class="mode-card" data-mode="buzz" onclick="selectMode(this)">
-            <div class="mode-icon">🎯</div>
-            <div class="mode-name">Buzz</div>
-            <div class="mode-desc">Multi-joueurs temps réel</div>
+        <div class="training-cat-card" data-cat="histoire" onclick="selectCat(this)">
+            <div class="tc-icon">🏛️</div>
+            <div class="tc-name">Histoire</div>
+            <div class="tc-desc">Civilisations, dates, guerres</div>
+        </div>
+        <div class="training-cat-card" data-cat="geographie" onclick="selectCat(this)">
+            <div class="tc-icon">🌍</div>
+            <div class="tc-name">Géographie</div>
+            <div class="tc-desc">Pays, capitales, continents</div>
+        </div>
+        <div class="training-cat-card" data-cat="mathematiques" onclick="selectCat(this)">
+            <div class="tc-icon">📐</div>
+            <div class="tc-name">Mathématiques</div>
+            <div class="tc-desc">Calcul, géométrie, logique</div>
+        </div>
+        <div class="training-cat-card" data-cat="culture_generale" onclick="selectCat(this)">
+            <div class="tc-icon">🧠</div>
+            <div class="tc-name">Culture Générale</div>
+            <div class="tc-desc">Connaissances variées</div>
+        </div>
+        <div class="training-cat-card" data-cat="sport" onclick="selectCat(this)">
+            <div class="tc-icon">⚽</div>
+            <div class="tc-name">Sport</div>
+            <div class="tc-desc">Compétitions, joueurs, records</div>
+        </div>
+        <div class="training-cat-card" data-cat="art_litterature" onclick="selectCat(this)">
+            <div class="tc-icon">🎨</div>
+            <div class="tc-name">Art &amp; Littérature</div>
+            <div class="tc-desc">Œuvres, peintres, écrivains</div>
         </div>
     </div>
 
-    <div class="section-title">Catégorie</div>
-    <div class="cat-grid">
-        <div class="cat-chip all-cats selected" data-cat="all" onclick="selectCat(this)">🎲 Toutes</div>
-        <div class="cat-chip" data-cat="sciences" onclick="selectCat(this)">🔬 Sciences</div>
-        <div class="cat-chip" data-cat="informatique" onclick="selectCat(this)">💻 Informatique</div>
-        <div class="cat-chip" data-cat="histoire" onclick="selectCat(this)">🏛️ Histoire</div>
-        <div class="cat-chip" data-cat="geographie" onclick="selectCat(this)">🌍 Géographie</div>
-        <div class="cat-chip" data-cat="mathematiques" onclick="selectCat(this)">📐 Maths</div>
-        <div class="cat-chip" data-cat="culture_generale" onclick="selectCat(this)">🧠 Culture</div>
-        <div class="cat-chip" data-cat="sport" onclick="selectCat(this)">⚽ Sport</div>
-        <div class="cat-chip" data-cat="art_litterature" onclick="selectCat(this)">🎨 Art</div>
-    </div>
-
-    <button class="start-btn" onclick="startGame()">COMMENCER ▶</button>
+    <button class="start-btn" onclick="startGame()">COMMENCER L'ENTRAÎNEMENT ▶</button>
+    <a href="dashboard.php" class="back-link">← Retour au dashboard</a>
 </div>
 
 <!-- ═══ GAME WRAP ═══ -->
@@ -887,7 +964,7 @@ body::before {
             </div>
             <div class="meta-item">
                 <span class="meta-label">Mode</span>
-                <span class="meta-value" id="mode-label">Solo</span>
+                <span class="meta-value" id="mode-label">Entraînement</span>
             </div>
             <div class="meta-item">
                 <div class="streak-wrap" id="streak-dots">
@@ -964,7 +1041,7 @@ body::before {
 
 <!-- ═══ END SCREEN ═══ -->
 <div class="end-screen" id="end-screen">
-    <div class="end-title" id="end-title">Partie terminée !</div>
+    <div class="end-title" id="end-title">Entraînement terminé !</div>
     <div>
         <div class="end-score-big" id="end-score">0</div>
         <div class="end-score-label">Points</div>
@@ -984,7 +1061,7 @@ body::before {
         </div>
     </div>
     <div class="end-btns">
-        <button class="end-btn-primary" onclick="location.reload()">▶ Rejouer</button>
+        <button class="end-btn-primary" onclick="location.reload()">▶ Nouvel entraînement</button>
         <button class="end-btn-secondary" onclick="location.href='dashboard.php'">Dashboard</button>
     </div>
 </div>
@@ -1088,7 +1165,7 @@ const TOTAL_Q = 10;
 
 // ── STATE ──
 let state = {
-    mode: 'solo',
+    mode: 'training',
     selectedCat: 'all',
     questions: [],
     current: 0,
@@ -1106,14 +1183,8 @@ let state = {
 };
 
 // ── START SCREEN ──
-function selectMode(el) {
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    state.mode = el.dataset.mode;
-}
-
 function selectCat(el) {
-    document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.training-cat-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     state.selectedCat = el.dataset.cat;
 }
@@ -1146,7 +1217,7 @@ function startGame() {
 
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('game-wrap').style.display = 'flex';
-    document.getElementById('mode-label').textContent = {solo:'Solo',rapidite:'Rapidité',tournoi:'Tournoi',buzz:'Buzz'}[state.mode] || state.mode;
+    document.getElementById('mode-label').textContent = {solo:'Solo',rapidite:'Rapidité',tournoi:'Tournoi',buzz:'Buzz',training:'Entraînement'}[state.mode] || state.mode;
 
     loadQuestion();
 }
@@ -1366,7 +1437,7 @@ function endGame(abandoned = false) {
         ? Math.round(state.correctCount * 100 / state.questions.length)
         : 0;
 
-    document.getElementById('end-title').textContent = abandoned ? 'Partie abandonnée' : state.correctCount >= 8 ? '🏆 Champion !' : state.correctCount >= 5 ? 'Bien joué !' : 'Partie terminée';
+    document.getElementById('end-title').textContent = abandoned ? 'Entraînement abandonné' : state.correctCount >= 8 ? '🏆 Maîtrise totale !' : state.correctCount >= 5 ? 'Belle progression !' : 'Entraînement terminé';
     document.getElementById('end-score').textContent    = state.score.toLocaleString();
     document.getElementById('end-correct').textContent  = `${state.correctCount}/${state.questions.length}`;
     document.getElementById('end-accuracy').textContent = accuracy + '%';

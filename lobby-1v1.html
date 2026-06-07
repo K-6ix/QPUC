@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QPC — 1v1</title>
+
+<!-- ════ ANTI-FLASH : applique le thème global avant le render ════ -->
+<script>
+(function () {
+  try {
+    var stored = localStorage.getItem('qpc-theme');
+    if (stored === 'light') {
+      document.documentElement.classList.add('light');
+    }
+  } catch (e) {}
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lobby-1v1.css">
 </head>
