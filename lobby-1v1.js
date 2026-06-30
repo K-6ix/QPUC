@@ -52,12 +52,17 @@ function init() {
     // Pré-remplissage des champs avec les valeurs sauvegardées
     $('create-name').value = MY_NAME;
     $('join-name').value   = MY_NAME;
-    $('my-elo').textContent = MY_ELO;
 
-    const div = getDivisionLabel(MY_ELO);
+    // Affichage ELO uniquement si le bloc existe (caché en mode invité)
+    const myEloEl = $('my-elo');
+    if (myEloEl) myEloEl.textContent = MY_ELO;
+
     const divEl = $('my-division');
-    divEl.textContent = div.label;
-    divEl.className   = 'elo-division ' + div.cls;
+    if (divEl) {
+        const div = getDivisionLabel(MY_ELO);
+        divEl.textContent = div.label;
+        divEl.className   = 'elo-division ' + div.cls;
+    }
 
     // Bouton listeners
     $('btn-create').addEventListener('click', createRoom);
@@ -118,7 +123,9 @@ function init() {
 
         // Petit délai pour laisser l'utilisateur lire le message
         setTimeout(() => {
-            window.location.href = `game-1v1.php?room=${roomCode}`;
+            // Propage le flag amical dans l'URL pour que game-1v1.php skip aussi l'auth
+            const friendlyParam = window.QPC_FRIENDLY ? '&friendly=1' : '';
+            window.location.href = `game-1v1.php?room=${roomCode}${friendlyParam}`;
         }, 400);
     });
 }
@@ -127,13 +134,22 @@ function init() {
 // ACTIONS
 // ────────────────────────────────────────────
 function createRoom() {
-    const name = $('create-name').value.trim() || MY_NAME;
+    // ── Auto-naming en mode invité : host = "Joueur 1"
+    const name = window.QPC_USER
+        ? ($('create-name').value.trim() || MY_NAME)
+        : 'Joueur 1';
+    hideInputError();
     localStorage.setItem('qpc_name', name);
-    socket.emit('create_room', { playerId: PLAYER_ID, name, elo: MY_ELO });
+    // ── Flag classé/amical injecté par lobby-1v1.php depuis $_GET['friendly']
+    const isRanked = !window.QPC_FRIENDLY;
+    socket.emit('create_room', { playerId: PLAYER_ID, name, elo: MY_ELO, isRanked });
 }
 
 function joinRoom() {
-    const name = $('join-name').value.trim() || MY_NAME;
+    // ── Auto-naming en mode invité : joiner = "Joueur 2"
+    const name = window.QPC_USER
+        ? ($('join-name').value.trim() || MY_NAME)
+        : 'Joueur 2';
     const code = $('join-code').value.trim().toUpperCase();
     if (!code || code.length < 4) { showInputError('Entre un code à 4 caractères.'); return; }
     localStorage.setItem('qpc_name', name);
