@@ -137,11 +137,35 @@ function applyElo(winnerElo, loserElo) {
     };
 }
 
+// ──────────────────────────────────────────────────────────────
+// DIFFICULTÉ ADAPTATIVE PAR ELO
+// ──────────────────────────────────────────────────────────────
+// Une seule fonction centralise tout : on lui donne un ELO, elle
+// renvoie le MIX de difficultés à respecter pour ce niveau, sous
+// forme de proportions { facile, moyen, difficile } sommant à 1.
+//
+// Switch par tranche de 100 ELO → progression douce, pas de saut
+// brutal entre divisions.
+//
+function getQuestionMix(elo) {
+    switch (true) {
+        case (elo < 1200): return { facile: 0.85, moyen: 0.15, difficile: 0.00 };
+        case (elo < 1300): return { facile: 0.75, moyen: 0.23, difficile: 0.02 };
+        case (elo < 1400): return { facile: 0.60, moyen: 0.35, difficile: 0.05 };
+        case (elo < 1500): return { facile: 0.50, moyen: 0.40, difficile: 0.10 };
+        case (elo < 1600): return { facile: 0.40, moyen: 0.45, difficile: 0.15 };
+        case (elo < 1700): return { facile: 0.30, moyen: 0.45, difficile: 0.25 };
+        case (elo < 1800): return { facile: 0.20, moyen: 0.45, difficile: 0.35 };
+        case (elo < 1900): return { facile: 0.10, moyen: 0.40, difficile: 0.50 };
+        default:           return { facile: 0.05, moyen: 0.30, difficile: 0.65 };
+    }
+}
+
+// @deprecated — gardée pour compat éventuelle, mais on n'utilise plus
+// que getQuestionMix dans la pioche.
 function getDifficultyForElo(elo) {
-    if (elo < ELO.THRESHOLDS.DIV3)  return ['facile'];
-    if (elo < ELO.THRESHOLDS.DIV2)  return ['facile', 'moyen'];
-    if (elo < ELO.THRESHOLDS.DIV1)  return ['moyen', 'difficile'];
-    return ['difficile'];
+    const mix = getQuestionMix(elo);
+    return Object.entries(mix).filter(([_, p]) => p > 0).map(([d]) => d);
 }
 
 // ══════════════════════════════════════════
@@ -150,25 +174,42 @@ function getDifficultyForElo(elo) {
 let QUESTIONS = [];
 
 function loadQuestions() {
-    const p1  = path.join(__dirname, 'data', 'questions.json');
-    const p2  = path.join(__dirname, '..', 'data', 'questions.json');
-    const src = fs.existsSync(p1) ? p1 : fs.existsSync(p2) ? p2 : null;
+    const candidates = [
+        path.join(__dirname, 'questions.json'),                // racine projet
+        path.join(__dirname, 'data', 'questions.json'),        // ./data/
+        path.join(__dirname, '..', 'questions.json'),          // ../
+        path.join(__dirname, '..', 'data', 'questions.json'),  // ../data/
+    ];
+    const src = candidates.find(p => fs.existsSync(p));
 
-    if (src) {
-        try {
-            const data = JSON.parse(fs.readFileSync(src, 'utf8'));
-            data.categories.forEach(cat => {
-                cat.questions.forEach(q => {
-                    QUESTIONS.push({ ...q, catLabel: cat.label, catIcon: cat.icon });
+    if (!src) {
+        console.warn('⚠️  [QUESTIONS] questions.json introuvable — questions de test');
+        console.warn('    Emplacements testés :');
+        candidates.forEach(p => console.warn(`      - ${p}`));
+        QUESTIONS = getTestQuestions();
+        return;
+    }
+
+    try {
+        const data = JSON.parse(fs.readFileSync(src, 'utf8'));
+        if (!Array.isArray(data.categories)) {
+            throw new Error('Structure invalide : "categories" doit être un tableau');
+        }
+        data.categories.forEach(cat => {
+            if (!Array.isArray(cat.questions)) return;
+            cat.questions.forEach(q => {
+                QUESTIONS.push({
+                    ...q,
+                    catLabel:   cat.id,      // clé interne stable (sciences, geographie, ...)
+                    catIcon:    cat.icon,
+                    catDisplay: cat.label    // nom joli pour le front (Sciences & Nature, ...)
                 });
             });
-            console.log(`✅ [QUESTIONS] ${QUESTIONS.length} chargées depuis ${src}`);
-        } catch(e) {
-            console.error('❌ [QUESTIONS]', e.message);
-            QUESTIONS = getTestQuestions();
-        }
-    } else {
-        console.warn('⚠️  [QUESTIONS] questions.json introuvable — questions de test');
+        });
+        console.log(`✅ [QUESTIONS] ${QUESTIONS.length} chargées depuis ${src}`);
+        console.log(`   ${data.categories.length} catégories : ${data.categories.map(c => c.id).join(', ')}`);
+    } catch(e) {
+        console.error(`❌ [QUESTIONS] Erreur lecture ${src} : ${e.message}`);
         QUESTIONS = getTestQuestions();
     }
 }
@@ -190,11 +231,50 @@ function getTestQuestions() {
 
 loadQuestions();
 
+// Pioche N questions en respectant le mix { facile, moyen, difficile }.
+// Si une difficulté est sous-fournie dans le pool, on rebascule le surplus
+// sur 'moyen' (le bucket le plus polyvalent).
+function pickQuestionsByMix(pool, mix, total = 10) {
+    // Calcul des cibles arrondies
+    const targets = {
+        facile:    Math.round(total * mix.facile),
+        moyen:     Math.round(total * mix.moyen),
+        difficile: Math.round(total * mix.difficile),
+    };
+    // Réajustement (arrondi peut donner ±1 vs total)
+    let sum = targets.facile + targets.moyen + targets.difficile;
+    if (sum !== total) targets.moyen = Math.max(0, targets.moyen + (total - sum));
+
+    const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+    const buckets = {
+        facile:    shuffle(pool.filter(q => q.difficulty === 'facile')),
+        moyen:     shuffle(pool.filter(q => q.difficulty === 'moyen')),
+        difficile: shuffle(pool.filter(q => q.difficulty === 'difficile')),
+    };
+
+    const picked = [];
+    for (const lvl of ['facile', 'moyen', 'difficile']) {
+        const take = Math.min(targets[lvl], buckets[lvl].length);
+        picked.push(...buckets[lvl].slice(0, take));
+    }
+
+    // Si pool trop pauvre dans une difficulté, on complète au hasard avec ce qui reste
+    if (picked.length < total) {
+        const remaining = shuffle(pool.filter(q => !picked.includes(q)));
+        picked.push(...remaining.slice(0, total - picked.length));
+    }
+
+    // Re-shuffle final : pas d'enchaînement "tous les faciles d'abord"
+    return shuffle(picked).slice(0, total);
+}
+
 function buildQuestions(avgElo = ELO.START) {
-    const allowed = getDifficultyForElo(avgElo);
-    const pool    = QUESTIONS.filter(q => allowed.includes(q.difficulty));
-    const src     = pool.length >= 10 ? pool : QUESTIONS;
-    return [...src].sort(() => Math.random() - 0.5).slice(0, 10);
+    const mix = getQuestionMix(avgElo);
+    const picked = pickQuestionsByMix(QUESTIONS, mix, 10);
+    const stats = picked.reduce((acc, q) => { acc[q.difficulty]++; return acc; },
+        { facile: 0, moyen: 0, difficile: 0 });
+    console.log(`🎯 ELO ${Math.round(avgElo)} → cible ${JSON.stringify(mix)} → tiré F:${stats.facile}/M:${stats.moyen}/D:${stats.difficile}`);
+    return picked;
 }
 
 // ══════════════════════════════════════════
@@ -301,7 +381,13 @@ function startGameCountdown(roomCode) {
     room.countdownStarted = true;
     room.phase = 'countdown';
     room.status    = 'countdown';
-    room.questions = buildQuestions();
+
+    // Calibration des questions selon la moyenne ELO des 2 joueurs
+    const playersList = Object.values(room.players);
+    const avgElo = playersList.length > 0
+        ? playersList.reduce((sum, p) => sum + (p.elo || ELO.START), 0) / playersList.length
+        : ELO.START;
+    room.questions = buildQuestions(avgElo);
     room.currentQ  = 0;
 
     console.log(`🎮 [${roomCode}] countdown lancé`);
@@ -342,6 +428,8 @@ function startQuestion(roomCode) {
     room.buzzedBy = null;
     room.answered = false;
     room.buzzOpen = false;
+    room.opponentChanceFor = null;   // reset par sécurité
+    room.alreadyOfferedChance = false;
     room.timerLeft = q.time;
 
     console.log(`❓ Q${room.currentQ + 1}: "${q.question.slice(0, 50)}..."`);
@@ -482,7 +570,7 @@ function endGame(roomCode, winnerId) {
     const loser  = Object.values(room.players).find(p => p.id !== winnerId);
 
     let eloResult = null;
-    if (winner && loser) {
+    if (winner && loser && room.isRanked) {
         const { newWinner, newLoser, winPts, lossPts } = applyElo(winner.elo, loser.elo);
         eloResult = {
             [winner.id]: { oldElo: winner.elo, newElo: newWinner, delta:  winPts },
@@ -494,6 +582,9 @@ function endGame(roomCode, winnerId) {
 
         // Persister en BDD (ELO + stats de partie)
         persistElo(room, winnerId, eloResult);
+    } else if (winner && loser) {
+        // Partie amicale : on log mais on ne touche pas à l'ELO en BDD
+        console.log(`🎉 [AMICAL] ${winner.name} bat ${loser.name} — pas de changement ELO`);
     }
 
     io.to(roomCode).emit('game_over', {
@@ -523,17 +614,20 @@ io.on('connection', (socket) => {
     console.log(`🔌 [connect] ${socket.id}`);
 
     // ── CRÉER ──
-    socket.on('create_room', ({ playerId, name, elo }) => {
+    socket.on('create_room', ({ playerId, name, elo, isRanked }) => {
         if (!playerId) { socket.emit('error', { message: 'playerId manquant' }); return; }
 
         const playerName = (name || 'Joueur').trim().slice(0, 20);
         const playerElo  = parseInt(elo) || ELO.START;
+        // ── Flag classé/amical : true par défaut (sécurité, ne change rien à l'existant)
+        const ranked     = isRanked !== false;
 
         let code;
         do { code = generateCode(); } while (rooms.has(code));
 
         const room = {
             code, status: 'lobby',
+            isRanked: ranked,
             players: {
                 [playerId]: {
                     id: playerId, socketId: socket.id,
@@ -551,6 +645,8 @@ io.on('connection', (socket) => {
             transitioning: false,
             processingAnswer: false,
             phase: 'lobby',
+            opponentChanceFor: null,  // ID du joueur qui a la chance de buzzer après une faute adverse
+            alreadyOfferedChance: false, // pour empêcher le ping-pong infini de chances
             transitionQueue: [],
             countdownStarted: false,
             gameReady: {},          // { playerId: true } — qui est sur game-1v1.html
@@ -560,8 +656,8 @@ io.on('connection', (socket) => {
         rooms.set(code, room);
         socket.join(code);
 
-        socket.emit('room_created', { code, players: getPublicScores(room) });
-        console.log(`🏠 Room "${code}" créée par ${playerName}`);
+        socket.emit('room_created', { code, players: getPublicScores(room), isRanked: room.isRanked });
+        console.log(`🏠 Room "${code}" créée par ${playerName} ${room.isRanked ? '[CLASSÉ]' : '[AMICAL]'}`);
     });
 
     // ── REJOINDRE ──
@@ -585,10 +681,10 @@ io.on('connection', (socket) => {
         };
 
         socket.join(roomCode);
-        socket.emit('room_joined', { code: roomCode, players: getPublicScores(room) });
+        socket.emit('room_joined', { code: roomCode, players: getPublicScores(room), isRanked: room.isRanked });
         io.to(roomCode).emit('player_joined', { players: getPublicScores(room) });
 
-        console.log(`✅ ${playerName} a rejoint "${roomCode}"`);
+        console.log(`✅ ${playerName} a rejoint "${roomCode}" ${room.isRanked ? '[CLASSÉ]' : '[AMICAL]'}`);
     });
 
     // ──────────────────────────────────────────────────────────────
@@ -684,47 +780,95 @@ io.on('connection', (socket) => {
     // ── BUZZ ──
     socket.on('buzz', ({ code, playerId }) => {
         const room = rooms.get(code);
-        if (!room || room.phase !== 'buzz' || room.status !== 'playing' || !room.buzzOpen || room.buzzedBy || room.answered) return;
+        if (!room || room.status !== 'playing' || room.buzzedBy || room.answered) return;
 
         const player = room.players[playerId];
         if (!player) return;
 
-        room.processingAnswer = false;
-        room.phase = 'answer';
-        room.buzzedBy = playerId;
-        clearRoomTimers(room);
+        // ─── CAS 1 : phase normale "buzz" — premier arrivé prend la main ───
+        if (room.phase === 'buzz' && room.buzzOpen) {
+            room.processingAnswer = false;
+            room.phase    = 'answer';
+            room.buzzedBy = playerId;
+            clearRoomTimers(room);
 
-        const q = room.questions[room.currentQ];
-        console.log(`🔔 ${player.name} a buzzé (${room.timerLeft}s restantes)`);
+            const q = room.questions[room.currentQ];
+            console.log(`🔔 ${player.name} a buzzé (${room.timerLeft}s restantes)`);
 
-        io.to(code).emit('buzzed', {
-            buzzerId  : playerId,
-            buzzerName: player.name,
-            timeLeft  : room.timerLeft,
-            timeMax   : q.time,
-        });
+            io.to(code).emit('buzzed', {
+                buzzerId  : playerId,
+                buzzerName: player.name,
+                timeLeft  : room.timerLeft,
+                timeMax   : q.time,
+            });
 
-        let answerTimer = ANSWER_TIMEOUT;
-        room.timerInterval = setInterval(() => {
-            answerTimer--;
-            io.to(code).emit('answer_timer', { timeLeft: answerTimer });
-            if (answerTimer <= 0) {
-                clearInterval(room.timerInterval);
-                if (!room.answered) {
-                    room.answered = true;
-                    const malus = -ELO.BUZZ_TIMEOUT_PENALTY;
-                    player.score = Math.max(0, player.score + malus);
-                    player.wrong++;
-                    player.catResults.push({ catId: q.category_id || 0, correct: 0 });
-                    io.to(code).emit('answer_result', {
-                        answerId: playerId, correct: false,
-                        pts: malus, answer: q.answer,
-                        scores: getPublicScores(room), timeout: true,
-                    });
-                    scheduleNextQuestion(code, 3000);
+            let answerTimer = ANSWER_TIMEOUT;
+            room.timerInterval = setInterval(() => {
+                answerTimer--;
+                io.to(code).emit('answer_timer', { timeLeft: answerTimer });
+                if (answerTimer <= 0) {
+                    clearInterval(room.timerInterval);
+                    if (!room.answered) {
+                        room.answered = true;
+                        const malus = -ELO.BUZZ_TIMEOUT_PENALTY;
+                        player.score = player.score + malus;   // pas de clamp : malus visible
+                        player.wrong++;
+                        player.catResults.push({ catId: q.category_id || 0, correct: 0 });
+                        io.to(code).emit('answer_result', {
+                            answerId: playerId, correct: false,
+                            pts: malus, answer: q.answer,
+                            scores: getPublicScores(room), timeout: true,
+                        });
+                        scheduleNextQuestion(code, 3000);
+                    }
                 }
-            }
-        }, 1000);
+            }, 1000);
+            return;
+        }
+
+        // ─── CAS 2 : phase "opponent_chance" — seul l'adversaire désigné peut buzzer ───
+        if (room.phase === 'opponent_chance' && room.opponentChanceFor === playerId) {
+            clearRoomTimers(room);
+            room.opponentChanceFor = null;
+            room.phase    = 'answer';
+            room.buzzedBy = playerId;
+
+            const q = room.questions[room.currentQ];
+            console.log(`🔔 ${player.name} a buzzé (chance adversaire)`);
+
+            io.to(code).emit('buzzed', {
+                buzzerId  : playerId,
+                buzzerName: player.name,
+                timeLeft  : 5,
+                timeMax   : 5,
+            });
+
+            // 5s pour répondre. Si timeout : malus + révélation de la bonne.
+            let answerTimer = 5;
+            room.timerInterval = setInterval(() => {
+                answerTimer--;
+                io.to(code).emit('answer_timer', { timeLeft: answerTimer });
+                if (answerTimer <= 0) {
+                    clearInterval(room.timerInterval);
+                    if (!room.answered) {
+                        room.answered = true;
+                        const malus = -ELO.BUZZ_TIMEOUT_PENALTY;
+                        player.score = player.score + malus;
+                        player.wrong++;
+                        player.catResults.push({ catId: q.category_id || 0, correct: 0 });
+                        io.to(code).emit('answer_result', {
+                            answerId: playerId, correct: false,
+                            pts: malus, answer: q.answer,
+                            scores: getPublicScores(room), timeout: true,
+                        });
+                        scheduleNextQuestion(code, 3000);
+                    }
+                }
+            }, 1000);
+            return;
+        }
+
+        // Hors de ces 2 cas : on ignore (sécurité).
     });
 
     // ── RÉPONDRE ──
@@ -748,26 +892,53 @@ io.on('connection', (socket) => {
             ? Math.round(q.points * (1 + ratio))
             : -Math.round(q.points * ratio);
 
-        player.score = Math.max(0, player.score + pts);
+        // Le score peut désormais descendre sous zéro : le malus est VISIBLE
+        // dans le total. Avant : Math.max(0, …) → en début de partie le malus
+        // était neutralisé et le joueur avait l'impression qu'il n'existait pas.
+        player.score = player.score + pts;
         if (isCorrect) player.correct++;
         else           player.wrong++;
 
         // Tracking catégorie pour le radar
         player.catResults.push({ catId: q.category_id || 0, correct: isCorrect ? 1 : 0 });
 
-        io.to(code).emit('answer_result', {
-            answerId: playerId, correct: isCorrect, pts,
-            answer  : q.answer, scores: getPublicScores(room), timeout: false,
-        });
+        if (isCorrect) {
+            // ─── BONNE RÉPONSE : on révèle (answer transmis) et on enchaîne ───
+            io.to(code).emit('answer_result', {
+                answerId: playerId, correct: true, pts,
+                chosen,                     // la réponse choisie par le buzzer
+                answer  : q.answer,         // la bonne réponse (présente → révélation)
+                scores  : getPublicScores(room),
+                timeout : false,
+            });
+            scheduleNextQuestion(code, 3000);
+        } else {
+            // ─── MAUVAISE RÉPONSE : on n'annonce QUE la réponse choisie (en rouge)
+            //     L'adversaire aura sa chance via opponent_chance ───
+            io.to(code).emit('answer_result', {
+                answerId: playerId, correct: false, pts,
+                chosen,                     // ← affiché en rouge côté client
+                // answer ABSENT volontairement : on ne révèle pas la bonne tout de suite
+                scores  : getPublicScores(room),
+                timeout : false,
+            });
 
-        if (!isCorrect) {
             const oppId = getOpponentId(room, playerId);
-            if (oppId) {
+            if (oppId && !room.alreadyOfferedChance) {
+                // Première faute de la question → on offre la chance à l'adversaire.
+                room.alreadyOfferedChance = true;
                 room.buzzedBy = null;
                 room.answered = false;
                 room.processingAnswer = false;
+                room.opponentChanceFor = oppId;
+                room.phase = 'opponent_chance';
 
-                io.to(code).emit('opponent_chance', { playerId: oppId, timeLeft: 5 });
+                io.to(code).emit('opponent_chance', {
+                    playerId      : oppId,
+                    timeLeft      : 5,
+                    wrongAnswer   : chosen,
+                    wrongPlayerId : playerId,
+                });
 
                 let oppTimer = 5;
                 room.timerInterval = setInterval(() => {
@@ -775,18 +946,26 @@ io.on('connection', (socket) => {
                     io.to(code).emit('answer_timer', { timeLeft: oppTimer });
                     if (oppTimer <= 0) {
                         clearInterval(room.timerInterval);
-                        if (!room.answered) {
+                        if (!room.answered && room.opponentChanceFor === oppId) {
                             room.answered = true;
+                            room.opponentChanceFor = null;
                             io.to(code).emit('time_out', {
-                                answer: q.answer, scores: getPublicScores(room),
+                                answer: q.answer,
+                                scores: getPublicScores(room),
                             });
                             scheduleNextQuestion(code, 2500);
                         }
                     }
                 }, 1000);
+            } else {
+                // Soit pas d'adversaire, soit la chance a déjà été offerte sur cette question
+                // (les deux ont fauté) → on révèle la bonne réponse maintenant.
+                io.to(code).emit('time_out', {
+                    answer: q.answer,
+                    scores: getPublicScores(room),
+                });
+                scheduleNextQuestion(code, 2500);
             }
-        } else {
-            scheduleNextQuestion(code, 3000);
         }
     });
 

@@ -41,20 +41,29 @@ html.light {
     --bg-elevated: #f1f1ed;
     --bg-overlay:  rgba(255, 255, 255, 0.7);
 
-    --text-main:   #1a1a1a;
-    --text-dim:    rgba(10, 10, 10, 0.55);
+    /* Texte : noir mat profond, contraste maximal (était #1a1a1a / 0.55 — trop pâle) */
+    --text-main:   #0a0a0a;
+    --text-dim:    rgba(8, 8, 8, 0.68);
 
-    --border:      rgba(10, 10, 10, 0.12);
+    --border:      rgba(138, 110, 47, 0.28);
     --border-strong: rgba(138, 110, 47, 0.55);
 
-    --gold-tint:   rgba(212, 175, 55, 0.08);
+    --gold-dim:    #8a6e2f;
+    --gold-tint:   rgba(212, 175, 55, 0.1);
     --gold-text:   #8a6e2f;              /* doré foncé pour rester lisible sur blanc */
+    --gold-glow:   rgba(212, 175, 55, 0.25);
 
+    --on-gold:     #000;
     --shadow-gold: 0 4px 24px rgba(212, 175, 55, 0.18), 0 2px 8px rgba(0, 0, 0, 0.04);
     --shadow-deep: rgba(0, 0, 0, 0.08);
 
     --body-radial: radial-gradient(ellipse at top, #faf5e8 0%, var(--bg-dark) 60%);
 }
+
+/* En light mode : Cinzel à poids fin lit "gris" sur blanc. On renforce les titres
+   de question (classe .m1-question-text réutilisée sur tous les écrans M1/M3/barrage)
+   pour qu'ils restent bien noirs et lisibles (cf. correctif 1v1). */
+html.light .m1-question-text { font-weight: 600; }
 
 /* Transition douce pendant le switch de thème */
 .theme-transitioning,
@@ -1124,4 +1133,305 @@ input[type="text"]:focus {
     gap: 0.8rem;
     justify-content: center;
     margin-top: 1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOND PARTAGÉ — gemmes flottantes + diamant central
+   (même implémentation que le 1v1 : SVG + CSS pur, GPU-composité,
+    aucune boucle JS de rendu → le thread principal reste libre)
+   ═══════════════════════════════════════════════════════════ */
+
+.bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--body-radial);
+}
+.vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%);
+}
+html.light .vignette {
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(138,110,47,0.06) 100%);
+}
+
+/* ─── Gemmes flottantes en arrière-plan ─── */
+.bg-gems {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.bg-gem {
+    position: absolute;
+    pointer-events: none;
+    will-change: transform;
+    transform: translate3d(0,0,0);
+}
+.bg-gem svg { width: 100%; height: 100%; display: block; }
+
+@keyframes champ-gem-drift-1 {
+    0%   { transform: translate3d(0,0,0)        rotate(0deg); }
+    50%  { transform: translate3d(18px,-22px,0) rotate(180deg); }
+    100% { transform: translate3d(0,0,0)        rotate(360deg); }
+}
+@keyframes champ-gem-drift-2 {
+    0%   { transform: translate3d(0,0,0)        rotate(0deg); }
+    50%  { transform: translate3d(-14px,18px,0) rotate(-150deg); }
+    100% { transform: translate3d(0,0,0)        rotate(-300deg); }
+}
+@keyframes champ-gem-drift-3 {
+    0%   { transform: translate3d(0,0,0)        rotate(0deg); }
+    50%  { transform: translate3d(22px,12px,0)  rotate(120deg); }
+    100% { transform: translate3d(0,0,0)        rotate(240deg); }
+}
+.bg-gem.v1 { animation: champ-gem-drift-1 14s ease-in-out infinite; }
+.bg-gem.v2 { animation: champ-gem-drift-2 18s ease-in-out infinite; }
+.bg-gem.v3 { animation: champ-gem-drift-3 22s ease-in-out infinite; }
+
+/* En light mode, les gemmes du fond reprennent le doré vif sur fond clair */
+html.light .bg-gem svg path { stroke: var(--gold); stroke-width: 1.6; }
+
+/* ─── Diamant central décoratif (fixe, discret, derrière les écrans) ─── */
+.champ-center-gem {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    height: 200px;
+    margin: -100px 0 0 -100px;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.16;          /* très discret : c'est un fond, pas un focal */
+}
+.champ-center-gem svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+}
+.champ-center-gem .gem-solid {
+    animation: champ-gem-spin-slow 14s linear infinite;
+    filter: drop-shadow(0 0 12px rgba(212,175,55,0.35));
+}
+.champ-center-gem .gem-wire {
+    animation: champ-gem-spin-rev 9s linear infinite;
+    color: #fcf6ba;
+}
+@keyframes champ-gem-spin-slow { to { transform: rotate(360deg); } }
+@keyframes champ-gem-spin-rev  { to { transform: rotate(-360deg); } }
+
+html.light .champ-center-gem { opacity: 0.22; }
+html.light .champ-center-gem .gem-wire { color: #0a0a0a; }  /* wireframe noir en light */
+
+/* Les écrans doivent passer AU-DESSUS du fond */
+.screen { z-index: 1; }
+
+/* Respect du reduced-motion système */
+@media (prefers-reduced-motion: reduce) {
+    .bg-gem,
+    .champ-center-gem .gem-solid,
+    .champ-center-gem .gem-wire { animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTRÔLES GLOBAUX FLOTTANTS (thème + son)
+   ═══════════════════════════════════════════════════════════ */
+.champ-global-ctrls {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    z-index: 1100;          /* au-dessus des écrans (z-index:1) */
+    display: flex;
+    gap: 0.5rem;
+}
+.champ-ctrl-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all .2s;
+    padding: 0;
+}
+.champ-ctrl-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold-text);
+    transform: translateY(-2px);
+}
+.champ-ctrl-btn svg { width: 17px; height: 17px; }
+
+/* Bascule des icônes selon le thème */
+.champ-ctrl-btn .theme-moon { display: none; }
+.champ-ctrl-btn .theme-sun  { display: block; }
+html.light .champ-ctrl-btn .theme-moon { display: block; }
+html.light .champ-ctrl-btn .theme-sun  { display: none; }
+
+/* Bascule des icônes son (classe .muted ajoutée par JS) */
+.champ-ctrl-btn .sound-off { display: none; }
+.champ-ctrl-btn .sound-on  { display: block; }
+.champ-ctrl-btn.muted .sound-off { display: block; }
+.champ-ctrl-btn.muted .sound-on  { display: none; }
+.champ-ctrl-btn.muted { color: var(--error); border-color: rgba(229,72,72,0.4); }
+
+@media (max-width: 600px) {
+    .champ-global-ctrls { bottom: 0.7rem; right: 0.7rem; }
+    .champ-ctrl-btn { width: 34px; height: 34px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOUTON ABANDON (dans les contrôles globaux) + MODAL slide-to-confirm
+   ═══════════════════════════════════════════════════════════ */
+.champ-ctrl-danger {
+    color: rgba(229,72,72,0.85);
+    border-color: rgba(229,72,72,0.4);
+}
+.champ-ctrl-danger:hover {
+    color: #fff;
+    background: rgba(229,72,72,0.85);
+    border-color: #e54848;
+}
+
+.champ-abandon-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;          /* au-dessus de tout, y compris les contrôles (1100) */
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+.champ-abandon-modal.open { display: flex; }
+.champ-abandon-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+}
+html.light .champ-abandon-backdrop { background: rgba(20,20,20,0.45); }
+.champ-abandon-card {
+    position: relative;
+    width: min(400px, 100%);
+    border-radius: 16px;
+    padding: 30px 28px;
+    text-align: center;
+    background: rgba(18,16,12,0.97);
+    border: 1px solid rgba(212,175,55,0.35);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+    animation: champ-abandon-pop 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+html.light .champ-abandon-card {
+    background: #ffffff;
+    border-color: rgba(138,110,47,0.4);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+}
+@keyframes champ-abandon-pop {
+    0%   { opacity: 0; transform: translateY(12px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.champ-abandon-icon {
+    width: 62px; height: 62px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(229,72,72,0.5);
+    background: rgba(229,72,72,0.1);
+    color: #e54848;
+}
+.champ-abandon-icon svg { width: 30px; height: 30px; }
+.champ-abandon-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 8px;
+}
+.champ-abandon-desc {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-dim);
+    margin: 0 0 4px;
+}
+.champ-abandon-cancel {
+    width: 100%;
+    margin-top: 0.6rem;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--gold-text);
+    transition: all 0.18s;
+}
+.champ-abandon-cancel:hover { background: var(--gold-tint); border-color: var(--gold); }
+
+/* Slide-to-confirm (même composant que le 1v1) */
+.slide-confirm {
+    position: relative;
+    width: 100%;
+    height: 54px;
+    border-radius: 27px;
+    background: rgba(229,72,72,0.10);
+    border: 1px solid rgba(229,72,72,0.4);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+    margin-top: 0.5rem;
+}
+.slide-confirm-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 48px;
+    background: rgba(229,72,72,0.18);
+    z-index: 0;
+}
+.slide-confirm-track {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: rgba(255,155,155,0.85);
+    pointer-events: none;
+    z-index: 1;
+}
+html.light .slide-confirm-track { color: #c0392b; }
+.slide-confirm-handle {
+    position: absolute;
+    left: 4px; top: 4px;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #e04848, #b83232);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: grab;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    touch-action: none;
+}
+.slide-confirm-handle:active { cursor: grabbing; }
+.slide-confirm-handle svg { width: 20px; height: 20px; }
+.slide-confirm-done {
+    font-size: 17px;
+    color: #ff7b7b;
+    font-weight: 700;
 }

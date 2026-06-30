@@ -75,6 +75,37 @@ $room_code = strtoupper(substr($room_code, 0, 10));
 </head>
 <body>
 
+<!-- ===================== FOND PARTAGÉ (gemmes + diamant) ===================== -->
+<div class="bg-layer"></div>
+<div class="bg-gems" id="bg-gems" aria-hidden="true"></div>
+<div class="vignette"></div>
+
+<!-- Diamant central décoratif fixe (discret, derrière les écrans) -->
+<div class="champ-center-gem" aria-hidden="true">
+    <svg class="gem-solid" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="champGemGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fcf6ba"/>
+                <stop offset="55%" stop-color="#d4af37"/>
+                <stop offset="100%" stop-color="#8a6e2f"/>
+            </linearGradient>
+        </defs>
+        <polygon points="50,8 92,50 50,92 8,50" fill="url(#champGemGrad)" opacity="0.92"/>
+        <polygon points="50,8 65,50 50,92 35,50" fill="rgba(252,246,186,0.25)"/>
+    </svg>
+    <svg class="gem-wire" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.6" stroke-linejoin="round">
+            <polygon points="50,6 94,50 50,94 6,50"/>
+            <line x1="50" y1="6"  x2="50" y2="94"/>
+            <line x1="6"  y1="50" x2="94" y2="50"/>
+            <line x1="50" y1="6"  x2="35" y2="50"/>
+            <line x1="50" y1="6"  x2="65" y2="50"/>
+            <line x1="50" y1="94" x2="35" y2="50"/>
+            <line x1="50" y1="94" x2="65" y2="50"/>
+        </g>
+    </svg>
+</div>
+
 <!-- ===================== ECRAN CHARGEMENT ===================== -->
 <section id="screen-loading" class="screen active">
     <div class="brand">
@@ -354,7 +385,51 @@ try {
 window.QPC_USER = null;
 <?php endif; ?>
 </script>
+<!-- ===================== CONTRÔLES GLOBAUX (thème + son + abandon) ===================== -->
+<div class="champ-global-ctrls" id="champ-global-ctrls">
+    <button class="champ-ctrl-btn champ-ctrl-danger" id="champ-abandon-btn" type="button" aria-label="Abandonner le championnat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <button class="champ-ctrl-btn" id="champ-theme-btn" type="button" aria-label="Basculer le thème clair/sombre">
+        <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+    </button>
+    <button class="champ-ctrl-btn" id="champ-sound-btn" type="button" aria-label="Activer/couper le son">
+        <svg class="sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <svg class="sound-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    </button>
+</div>
+
+<!-- ===================== MODAL ABANDON (slide-to-confirm) ===================== -->
+<div class="champ-abandon-modal" id="champ-abandon-modal" aria-hidden="true">
+    <div class="champ-abandon-backdrop" id="champ-abandon-backdrop"></div>
+    <div class="champ-abandon-card" role="dialog" aria-labelledby="champ-abandon-title">
+        <div class="champ-abandon-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+        </div>
+        <h2 class="champ-abandon-title" id="champ-abandon-title">Déclarer forfait ?</h2>
+        <p class="champ-abandon-desc">Tu vas quitter le championnat en cours. Tu seras éliminé et perdras des points ELO.</p>
+        <div class="slide-confirm" id="champ-abandon-slide">
+            <div class="slide-confirm-fill" id="champ-abandon-slide-fill"></div>
+            <div class="slide-confirm-track" id="champ-abandon-slide-track">Glisser pour abandonner →</div>
+            <div class="slide-confirm-handle" id="champ-abandon-slide-handle" role="button" tabindex="0" aria-label="Glisser pour abandonner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+        </div>
+        <button class="champ-abandon-cancel" id="champ-abandon-cancel" type="button">Rester dans la partie</button>
+    </div>
+</div>
+
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="audio.js?v=<?= filemtime(__DIR__.'/audio.js') ?>"></script>
 <script src="game.js?v=<?= filemtime(__DIR__.'/game.js') ?>"></script>
 
 </body>

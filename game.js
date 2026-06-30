@@ -445,6 +445,8 @@
     });
     socket.on('champ_countdown', ({ count }) => {
         els.countdownNum.textContent = count;
+        if (count > 0) QPCAudio.countdownTick();
+        else           QPCAudio.countdownGo();
     });
 
     // ----- M1 -----
@@ -462,6 +464,7 @@
         renderM1Players();
         els.m1Status.textContent = '';
         genericTimer(data.deadline, data.time, els.m1TimerFill, els.m1TimerText);
+        QPCAudio.questionAppear();
     });
 
     socket.on('m1_player_answered', ({ playerId, answeredCount, totalAlive }) => {
@@ -503,6 +506,10 @@
             if (myResult.correct === true)      els.m1Status.textContent = `✓ Bonne réponse ! +1 pt`;
             else if (myResult.correct === false) els.m1Status.textContent = `✗ Mauvaise réponse. -1 pt`;
             else                                 els.m1Status.textContent = `Trop tard. 0 pt.`;
+            // Son selon mon résultat
+            if (myResult.correct === true)       QPCAudio.correctMe();
+            else if (myResult.correct === false) QPCAudio.wrongMe();
+            else                                 QPCAudio.timeOut();
         }
     });
 
@@ -570,6 +577,9 @@
         // Si je suis l'eliminé, activer le mode spectateur
         if (eliminatedId === PLAYER_ID) {
             setSpectator(true);
+            QPCAudio.eliminated();
+        } else {
+            QPCAudio.mancheStart();   // je passe à la manche suivante
         }
         showScreen('m1end');
     });
@@ -850,6 +860,10 @@
             else msg = `Pas de réponse. 0 pt.`;
             if (r.betAmount > 0) msg += ` (pari de ${r.betAmount})`;
             els.m3Status.textContent = msg;
+            // Son selon mon résultat
+            if (r.correct === true)       QPCAudio.correctMe();
+            else if (r.correct === false) QPCAudio.wrongMe();
+            else                          QPCAudio.timeOut();
         }
     });
 
@@ -1115,9 +1129,11 @@
             optsEl.querySelectorAll('.m1-option').forEach(b => b.disabled = false);
             buzzBtn.disabled = true;
             statusEl.textContent = `Tu as buzzé ! 5s pour répondre.`;
+            QPCAudio.myBuzz();
         } else {
             buzzBtn.disabled = true;
             statusEl.textContent = `${roomPlayers.find(p => p.id === playerId)?.name || '?'} a buzzé !`;
+            QPCAudio.oppBuzz();
         }
         simpleCountdownTimer(buzzDeadline, buzzResponseTime, textEl);
     });
@@ -1142,6 +1158,10 @@
         }
         statusEl.textContent = msg;
         if (betAmount > 0) statusEl.textContent += ` (pari de ${betAmount})`;
+
+        // Son selon le résultat du buzz
+        if (correct)       isMe ? QPCAudio.correctMe() : QPCAudio.correctOpp();
+        else               isMe ? QPCAudio.wrongMe()   : QPCAudio.wrongOpp();
 
         // [NEW] Si le buzzer a raté, on marque sa mauvaise réponse en rouge
         // pour que l'adversaire (qui pourra peut-être buzzer) la voie aussi
@@ -1271,6 +1291,9 @@
         const iAmWinner = (winnerId === PLAYER_ID);
         if (iAmWinner) {
             launchConfetti();
+            QPCAudio.gameWin();
+        } else {
+            QPCAudio.gameLose();
         }
     });
 
@@ -1426,6 +1449,157 @@
     });
 
     console.log('[CHAMP-GAME] initialized, playerId =', PLAYER_ID, 'room =', currentCode);
+
+    // ============================================================
+    //  FOND : gemmes wireframe SVG flottantes (one-shot)
+    //  Init unique au boot. Animations 100% CSS/GPU ensuite,
+    //  aucun rAF → zéro coût sur le thread principal en jeu.
+    // ============================================================
+    function initBgGems() {
+        const host = document.getElementById('bg-gems');
+        if (!host) return;
+        const svgNS = 'http://www.w3.org/2000/svg';
+
+        function buildGemSvg() {
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('viewBox', '0 0 100 100');
+            const g = document.createElementNS(svgNS, 'g');
+            g.setAttribute('fill', 'none');
+            g.setAttribute('stroke', '#d4af37');
+            g.setAttribute('stroke-width', '1.4');
+            g.setAttribute('stroke-linejoin', 'round');
+            ['M50,8 L92,50 L50,92 L8,50 Z', 'M50,8 L50,92', 'M8,50 L92,50', 'M50,8 L35,50 L50,92 L65,50 Z']
+                .forEach(d => {
+                    const p = document.createElementNS(svgNS, 'path');
+                    p.setAttribute('d', d);
+                    g.appendChild(p);
+                });
+            svg.appendChild(g);
+            return svg;
+        }
+
+        const COUNT = 16;
+        const variants = ['v1', 'v2', 'v3'];
+        const W = window.innerWidth, H = window.innerHeight;
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < COUNT; i++) {
+            const gem = document.createElement('div');
+            const size = 40 + Math.random() * 90;
+            const opacity = 0.08 + Math.random() * 0.22;
+            const dur = 12 + Math.random() * 14;
+            gem.className = 'bg-gem ' + variants[i % variants.length];
+            gem.style.cssText =
+                'left:' + (Math.random() * W) + 'px;' +
+                'top:' + (Math.random() * H) + 'px;' +
+                'width:' + size + 'px;height:' + size + 'px;' +
+                'opacity:' + opacity + ';' +
+                'animation-duration:' + dur + 's;' +
+                'animation-delay:' + (-Math.random() * dur) + 's;';
+            gem.appendChild(buildGemSvg());
+            frag.appendChild(gem);
+        }
+        host.appendChild(frag);
+    }
+    initBgGems();
+
+    // ============================================================
+    //  CONTRÔLES GLOBAUX : toggle thème + toggle son
+    // ============================================================
+    (function initGlobalControls() {
+        // — Toggle thème —
+        const themeBtn = document.getElementById('champ-theme-btn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', () => {
+                const root = document.documentElement;
+                root.classList.add('theme-transitioning');
+                const isLight = root.classList.toggle('light');
+                try { localStorage.setItem('qpc-theme', isLight ? 'light' : 'dark'); } catch (e) {}
+                setTimeout(() => root.classList.remove('theme-transitioning'), 300);
+            });
+        }
+
+        // — Toggle son —
+        const soundBtn = document.getElementById('champ-sound-btn');
+        if (soundBtn) {
+            const syncSound = () => soundBtn.classList.toggle('muted', QPCAudio.isMuted());
+            syncSound();
+            soundBtn.addEventListener('click', () => {
+                QPCAudio.init();
+                QPCAudio.toggleMuted();
+                syncSound();
+            });
+        }
+
+        // — Abandon (modal + slide-to-confirm) —
+        const abandonBtn    = document.getElementById('champ-abandon-btn');
+        const abandonModal  = document.getElementById('champ-abandon-modal');
+        const abandonCancel = document.getElementById('champ-abandon-cancel');
+        const abandonBack   = document.getElementById('champ-abandon-backdrop');
+
+        function openAbandon()  { if (abandonModal) { abandonModal.classList.add('open'); abandonModal.setAttribute('aria-hidden', 'false'); } }
+        function closeAbandon() { if (abandonModal) { abandonModal.classList.remove('open'); abandonModal.setAttribute('aria-hidden', 'true'); resetSlide(); } }
+        function doLeave() {
+            closeAbandon();
+            try { socket.emit('champ_leave_room'); } catch (e) {}
+            try { socket.disconnect(); } catch (e) {}
+            window.location.href = returnUrl();
+        }
+
+        if (abandonBtn)    abandonBtn.addEventListener('click', openAbandon);
+        if (abandonCancel) abandonCancel.addEventListener('click', closeAbandon);
+        if (abandonBack)   abandonBack.addEventListener('click', closeAbandon);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && abandonModal && abandonModal.classList.contains('open')) closeAbandon();
+        });
+
+        // Slide-to-confirm
+        const slide  = document.getElementById('champ-abandon-slide');
+        const handle = document.getElementById('champ-abandon-slide-handle');
+        const fill   = document.getElementById('champ-abandon-slide-fill');
+        const track  = document.getElementById('champ-abandon-slide-track');
+        let dragging = false, done = false;
+        function maxX() { return slide ? slide.clientWidth - handle.offsetWidth - 8 : 0; }
+        function setX(x) {
+            x = Math.max(0, Math.min(maxX(), x));
+            handle.style.left = (x + 4) + 'px';
+            fill.style.width = (x + 46) + 'px';
+            if (x >= maxX() - 2 && !done) { done = true; track.innerHTML = '<span class="slide-confirm-done">Forfait ✓</span>'; setTimeout(doLeave, 350); }
+        }
+        function resetSlide() {
+            if (!slide) return;
+            done = false; dragging = false;
+            handle.style.transition = 'left .25s ease'; fill.style.transition = 'width .25s ease';
+            handle.style.left = '4px'; fill.style.width = '48px';
+            if (track) track.textContent = 'Glisser pour abandonner →';
+            setTimeout(() => { handle.style.transition = ''; fill.style.transition = ''; }, 260);
+        }
+        if (slide && handle) {
+            handle.addEventListener('pointerdown', (e) => { if (done) return; dragging = true; handle.style.transition = ''; fill.style.transition = ''; e.preventDefault(); });
+            window.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const r = slide.getBoundingClientRect();
+                const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left - 25;
+                setX(cx);
+            });
+            window.addEventListener('pointerup', () => {
+                if (!dragging) return;
+                dragging = false;
+                if (!done) { handle.style.transition = 'left .25s ease'; fill.style.transition = 'width .25s ease'; setX(0); }
+            });
+            handle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); done = true; track.innerHTML = '<span class="slide-confirm-done">Forfait ✓</span>'; setTimeout(doLeave, 350); }
+            });
+        }
+
+        // — Init AudioContext au premier geste utilisateur (politique navigateurs) —
+        const initOnce = () => {
+            QPCAudio.init();
+            document.removeEventListener('click', initOnce);
+            document.removeEventListener('keydown', initOnce);
+        };
+        document.addEventListener('click', initOnce);
+        document.addEventListener('keydown', initOnce);
+    })();
 
     // ============================================================
     //  AUTO-JOIN : on rejoint la room dont le code est dans l'URL

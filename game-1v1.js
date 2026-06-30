@@ -61,6 +61,13 @@ function $(id) { return document.getElementById(id); }
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
+
+// ── Helper : URL de retour selon l'état de l'utilisateur ──
+// Les guests n'ont pas accès au dashboard → on les renvoie vers game.php
+function returnUrl() {
+    return window.QPC_USER ? 'dashboard.php' : 'game.php';
+}
+
 function init() {
     if (!ROOM_CODE) {
         alert('Code de room manquant. Retour au lobby.');
@@ -70,10 +77,21 @@ function init() {
 
     // ─── Boutons UI ───
     $('buzz-btn').addEventListener('click', onBuzz);
-    $('abandon-btn').addEventListener('click', confirmAbandon);
+    // L'ancien bouton croix top-right a été retiré ; on branche le bouton du bas.
+    $('abandon-btn-text')?.addEventListener('click', confirmAbandon);
     $('rematch-btn').addEventListener('click', onRematchClick);
     $('dashboard-btn').addEventListener('click', () => {
-        location.href = 'dashboard.php';
+        location.href = returnUrl();
+    });
+
+    // ─── Modal d'abandon ───
+    $('abandon-modal-cancel')?.addEventListener('click', closeAbandonModal);
+    initAbandonSlide();   // remplace l'ancien bouton "Quitter" par le slide-to-confirm
+    $('abandon-modal-backdrop')?.addEventListener('click', closeAbandonModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && $('abandon-modal')?.classList.contains('open')) {
+            closeAbandonModal();
+        }
     });
 
     // ─── Clavier : n'importe quelle touche = buzz ───
@@ -206,6 +224,8 @@ function onCountdown({ count }) {
             num.style.animation = '';
         });
     });
+    // FX : son countdown
+    window.QPCFx?.onCountdown(count);
 }
 
 function onQuestionText({ index, total, question, catLabel, catIcon, difficulty, scores, pointsToWin }) {
@@ -218,7 +238,7 @@ function onQuestionText({ index, total, question, catLabel, catIcon, difficulty,
 
     updateScores(scores, pointsToWin);
 
-    $('q-counter').textContent      = `Q ${index+1}/${total}`;
+    $('q-counter').textContent      = `${index+1}/${total}`;
     $('cat-icon').textContent       = catIcon || '🎲';
     $('cat-label').textContent      = catLabel || '—';
     const diffEl = $('diff-badge');
@@ -227,7 +247,12 @@ function onQuestionText({ index, total, question, catLabel, catIcon, difficulty,
 
     const card = $('question-card');
     card.classList.add('reading-phase');
-    $('question-text').textContent = question;
+    // FX : split words + flash + shockwave + son
+    if (window.QPCFx) {
+        window.QPCFx.onQuestionTextArrive(question, $('question-text'), card);
+    } else {
+        $('question-text').textContent = question;
+    }
 
     resetOptions();
     setBuzzState('locked');
@@ -236,7 +261,10 @@ function onQuestionText({ index, total, question, catLabel, catIcon, difficulty,
 
     stopTimer();
     $('timer-num').textContent  = '—';
-    $('timer-fill').style.width = '0%';
+    if ($('timer-fill')) $('timer-fill').style.width = '0%';
+    // Reset le SVG ring à plein
+    const ring = $('ring-progress');
+    if (ring) ring.setAttribute('stroke-dashoffset', 0);
 }
 
 function onQuestionOptions({ options, points, time }) {
@@ -246,6 +274,8 @@ function onQuestionOptions({ options, points, time }) {
     timerMax  = time;
     timerLeft = time;
     updateTimerUI();
+    // FX : son + flip 3D des options
+    window.QPCFx?.onOptionsAppear();
 }
 
 function onBuzzOpen() {
@@ -253,12 +283,16 @@ function onBuzzOpen() {
     setBuzzState('active');
     $('buzz-status').textContent = 'BUZZ !';
     $('buzz-status').className   = 'buzz-status active-msg';
+    // FX : son ding + shockwave
+    window.QPCFx?.onBuzzOpen();
 }
 
 function onTimerTick({ timeLeft, timeMax }) {
     timerLeft = timeLeft;
     timerMax  = timeMax;
     updateTimerUI();
+    // FX : tick sonore (urgent les 5 dernières secondes)
+    window.QPCFx?.onTimerTick(timeLeft);
 }
 
 function onBuzzed({ buzzerId, buzzerName, timeLeft }) {
@@ -266,18 +300,21 @@ function onBuzzed({ buzzerId, buzzerName, timeLeft }) {
     buzzOpen  = false;
     timerLeft = timeLeft;
 
+    // FX : burst couleur selon qui buzz + son
+    window.QPCFx?.onBuzzed(buzzerId === PLAYER_ID);
+
     if (buzzerId === PLAYER_ID) {
         setBuzzState('my-buzz');
         enableOptions();
         $('buzz-status').textContent = 'Réponds vite !';
         $('buzz-status').className   = 'buzz-status my-msg';
-        $('p1-avatar').classList.add('buzzed');
+        $('p1-avatar').closest('.hex-frame')?.classList.add('buzzed');
     } else {
         setBuzzState('opponent-buzz');
         disableOptions();
         $('buzz-status').textContent = `${buzzerName} a buzzé !`;
         $('buzz-status').className   = 'buzz-status opp-msg';
-        $('p2-avatar').classList.add('buzzed');
+        $('p2-avatar').closest('.hex-frame')?.classList.add('buzzed');
     }
 }
 
@@ -287,14 +324,21 @@ function onAnswerTimer({ timeLeft }) {
     updateTimerUI();
 }
 
-function onAnswerResult({ answerId, correct, pts, answer, scores, timeout }) {
+function onAnswerResult({ answerId, correct, pts, chosen, answer, scores, timeout }) {
     answered = true;
     buzzedBy = null;
 
-    $('p1-avatar').classList.remove('buzzed');
-    $('p2-avatar').classList.remove('buzzed');
+    $('p1-avatar').closest('.hex-frame')?.classList.remove('buzzed');
+    $('p2-avatar').closest('.hex-frame')?.classList.remove('buzzed');
 
-    revealAnswer(answer, answerId, correct);
+    // Si `answer` est présent → on révèle la bonne (correct, ou timeout, ou final).
+    // Si `answer` est absent → la mauvaise réponse est juste marquée en rouge,
+    // et l'adversaire va avoir sa chance via opponent_chance.
+    if (answer) {
+        revealAnswer(answer, answerId, correct, chosen);
+    } else if (chosen) {
+        markWrongChoice(chosen, answerId);
+    }
 
     const name = players[answerId]?.name || 'Joueur';
     showFeedback(correct, pts, name, timeout);
@@ -302,22 +346,44 @@ function onAnswerResult({ answerId, correct, pts, answer, scores, timeout }) {
 
     if (correct && answerId === PLAYER_ID) spawnParticles();
 
+    // FX : big mark + flash + confetti + son selon contexte
+    const isMe = answerId === PLAYER_ID;
+    const scoreEl = isMe ? $('p1-score') : $('p2-score');
+    window.QPCFx?.onAnswerResult({
+        correct, isMe, timeout,
+        pts: pts || 0,
+        targetScoreEl: scoreEl
+    });
+
     setBuzzState('locked');
     $('buzz-status').textContent = '';
-    stopTimer();
+    // ⚠ on ne stopTimer() PAS systématiquement : si opponent_chance arrive
+    // juste après (cas "réponse fausse, pas révélée"), le serveur va relancer
+    // un timer de 5s. Le stopTimer reste valide dans tous les autres cas.
+    if (answer || timeout) stopTimer();
 }
 
-function onOpponentChance({ playerId, timeLeft }) {
+function onOpponentChance({ playerId, timeLeft, wrongAnswer, wrongPlayerId }) {
+    // La mauvaise réponse a déjà été marquée en rouge par onAnswerResult/markWrongChoice.
+    // Ici on gère uniquement l'état du buzz pour les 5 secondes qui suivent.
+
     if (playerId === PLAYER_ID) {
-        buzzedBy = PLAYER_ID;
-        enableOptions();
-        setBuzzState('my-buzz');
-        $('buzz-status').textContent = 'Ta chance ! Réponds !';
-        $('buzz-status').className   = 'buzz-status my-msg';
+        // ─── C'est À MOI de buzzer si je veux tenter ───
+        buzzOpen = true;             // important pour que onBuzz() laisse passer
+        buzzedBy = null;
+        answered = false;
+        setBuzzState('open');         // bouton actif (pas 'my-buzz' : pas encore mes options)
+        $('buzz-status').textContent = '⚡ À toi ! Buzz pour tenter.';
+        $('buzz-status').className   = 'buzz-status open-msg';
     } else {
-        $('buzz-status').textContent = 'Adversaire peut répondre…';
+        // ─── L'adversaire peut buzzer pour tenter ───
+        buzzOpen = false;
+        setBuzzState('locked');
+        $('buzz-status').textContent = 'Ton adversaire peut tenter…';
         $('buzz-status').className   = 'buzz-status opp-msg';
     }
+
+    // Timer 5s — visible pour les deux joueurs
     timerLeft = timeLeft;
     timerMax  = 5;
     updateTimerUI();
@@ -332,6 +398,8 @@ function onTimeOut({ answer, scores }) {
     $('buzz-status').textContent = 'Temps écoulé !';
     $('buzz-status').className   = 'buzz-status locked-msg';
     $('timer-num').textContent   = '0';
+    // FX : big mark ⏱ + shake + son
+    window.QPCFx?.onAnswerResult({ correct: false, isMe: false, timeout: true });
 }
 
 function onGameOver({ winnerId, winnerName, scores, eloResult, forfeit }) {
@@ -342,6 +410,9 @@ function onGameOver({ winnerId, winnerName, scores, eloResult, forfeit }) {
     $('rematch-btn').textContent = '↺ Revanche';
     $('rematch-status').classList.remove('visible');
     $('rematch-status').textContent = '';
+
+    // FX : son + confetti si on gagne
+    window.QPCFx?.onGameOver(winnerId === PLAYER_ID);
 
     setTimeout(() => showEndScreen(winnerId, winnerName, scores, eloResult, forfeit), 1500);
 }
@@ -393,12 +464,100 @@ function onAnswer(chosen) {
     socket.emit('answer', { code: ROOM_CODE, playerId: PLAYER_ID, chosen });
 }
 
-function confirmAbandon() {
-    if (confirm('Abandonner la partie ? Vous perdrez des points ELO.')) {
-        socket.disconnect();
-        location.href = 'dashboard.php';
+function openAbandonModal() {
+    const modal = $('abandon-modal');
+    const desc  = $('abandon-modal-desc');
+    if (!modal) return;
+
+    // Message contextualisé : amical vs classé
+    if (desc) {
+        desc.textContent = window.QPC_FRIENDLY
+            ? 'Tu vas quitter le duel en cours.'
+            : 'Tu vas quitter le duel en cours et perdre des points ELO.';
     }
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    // Focus sur "Continuer" par défaut (option safe)
+    setTimeout(() => $('abandon-modal-cancel')?.focus(), 0);
 }
+
+function closeAbandonModal() {
+    const modal = $('abandon-modal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    resetAbandonSlide();
+}
+
+function doAbandon() {
+    closeAbandonModal();
+    try { socket.disconnect(); } catch (e) {}
+    location.href = returnUrl();
+}
+
+// ─── Slide-to-confirm pour l'abandon ───
+let _abSlideReset = null;
+function resetAbandonSlide() { if (_abSlideReset) _abSlideReset(); }
+
+function initAbandonSlide() {
+    const slide  = $('abandon-slide');
+    const handle = $('abandon-slide-handle');
+    const fill   = $('abandon-slide-fill');
+    const track  = $('abandon-slide-track');
+    if (!slide || !handle) return;
+
+    let dragging = false, done = false;
+    const maxX = () => slide.clientWidth - handle.offsetWidth - 8;
+
+    function setX(x) {
+        x = Math.max(0, Math.min(maxX(), x));
+        handle.style.left = (x + 4) + 'px';
+        fill.style.width = (x + 46) + 'px';
+        if (x >= maxX() - 2 && !done) complete();
+    }
+    function complete() {
+        done = true;
+        track.innerHTML = '<span class="slide-confirm-done">Forfait ✓</span>';
+        setTimeout(doAbandon, 350);   // petit délai pour que le ✓ soit vu
+    }
+    _abSlideReset = function () {
+        done = false; dragging = false;
+        handle.style.transition = 'left .25s ease';
+        fill.style.transition   = 'width .25s ease';
+        handle.style.left = '4px';
+        fill.style.width  = '48px';
+        if (track) track.textContent = 'Glisser pour abandonner →';
+        setTimeout(() => { handle.style.transition = ''; fill.style.transition = ''; }, 260);
+    };
+
+    function down(e) { if (done) return; dragging = true; handle.style.transition = ''; fill.style.transition = ''; e.preventDefault(); }
+    function move(e) {
+        if (!dragging) return;
+        const r = slide.getBoundingClientRect();
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left - 25;
+        setX(cx);
+    }
+    function up() {
+        if (!dragging) return;
+        dragging = false;
+        if (!done) {
+            handle.style.transition = 'left .25s ease';
+            fill.style.transition   = 'width .25s ease';
+            setX(0);
+        }
+    }
+    handle.addEventListener('pointerdown', down);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    // Accessibilité clavier : Entrée/Espace sur la poignée = abandon direct
+    handle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); complete(); }
+    });
+}
+
+// Alias gardé pour ne pas casser les appels existants ailleurs dans le fichier
+function confirmAbandon() { openAbandonModal(); }
 
 // ★ FIX BUG 2 : envoie l'event, désactive le bouton, affiche le statut
 function onRematchClick() {
@@ -492,16 +651,33 @@ function disableOptions() {
     document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 }
 
-function revealAnswer(correctAnswer, answerId, correct) {
+function revealAnswer(correctAnswer, answerId, correct, chosen) {
     document.querySelectorAll('.option-btn').forEach(btn => {
         btn.disabled = true;
         const text = btn.dataset.opt || btn.querySelector('span:last-child')?.textContent;
+
+        // La bonne réponse : vert si elle a été cliquée, gold sinon (révélation)
         if (text === correctAnswer) {
-            btn.classList.add(correct && answerId === myId ? 'correct' : 'reveal');
+            btn.classList.add(correct ? 'correct' : 'reveal');
         }
-        if (answerId === myId && !correct && text !== correctAnswer && btn.classList.contains('visible')) {
+        // La réponse fautive (de n'importe quel joueur) : rouge
+        if (chosen && text === chosen && !correct) {
             btn.classList.add('wrong');
         }
+    });
+}
+
+// ─── Marque la réponse choisie en rouge SANS révéler la bonne réponse ─────
+//     (utilisé quand on va passer en phase opponent_chance)
+function markWrongChoice(chosen, answerId) {
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        const text = btn.dataset.opt || btn.querySelector('span:last-child')?.textContent;
+        if (text === chosen) {
+            btn.classList.add('wrong');
+        }
+        // On désactive TOUS les boutons pendant que l'adversaire décide s'il buzze.
+        // (Ils seront réactivés quand l'adversaire buzzera, dans onBuzzed.)
+        btn.disabled = true;
     });
 }
 
@@ -518,14 +694,33 @@ function setBuzzState(state) {
 // ══════════════════════════════════════════════════
 function updateTimerUI() {
     const pct      = timerMax > 0 ? (timerLeft / timerMax) * 100 : 0;
+    const ratio    = timerMax > 0 ? Math.max(0, timerLeft) / timerMax : 0;
     const isDanger = timerLeft <= 5;
     const fill = $('timer-fill');
     const num  = $('timer-num');
+    const ring = $('ring-progress');
 
-    fill.style.width = pct + '%';
-    num.textContent  = timerLeft;
-    fill.classList.toggle('danger', isDanger);
-    num.classList.toggle('danger', isDanger);
+    // Legacy bar (caché mais maintenu)
+    if (fill) {
+        fill.style.width = pct + '%';
+        fill.classList.toggle('danger', isDanger);
+    }
+
+    // SVG ring (nouveau visuel principal)
+    if (ring) {
+        const C = 2 * Math.PI * 110; // r=110 → ~691.15
+        ring.setAttribute('stroke-dashoffset', C * (1 - ratio));
+        let col = '#d4af37';
+        if (ratio < 0.3)      col = '#e05555';
+        else if (ratio < 0.5) col = '#f59e0b';
+        ring.style.stroke = col;
+        ring.style.filter = `drop-shadow(0 0 6px ${col})`;
+    }
+
+    if (num) {
+        num.textContent = timerLeft;
+        num.classList.toggle('danger', isDanger);
+    }
 }
 function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
 
@@ -568,14 +763,51 @@ function updatePlayersInfo(scoresList) {
     const opp = scoresList.find(p => p.id !== myId) || scoresList[1];
 
     if (me) {
-        $('p1-name').textContent   = me.name  || 'Joueur 1';
-        $('p1-elo').textContent    = `${me.elo  || 1200} ELO`;
-        $('p1-avatar').textContent = (me.name  || 'J').charAt(0).toUpperCase();
+        $('p1-name').textContent   = me.name || 'Joueur 1';
+        $('p1-elo').textContent    = me.elo  || 1200;
+        setAvatar('p1-avatar', me.name, me.profile_pic || null);
+        renderStreak('p1-streak', streakFromScore(me.score || 0), 'p1');
     }
     if (opp) {
         $('p2-name').textContent   = opp.name || 'Joueur 2';
-        $('p2-elo').textContent    = `${opp.elo || 1200} ELO`;
-        $('p2-avatar').textContent = (opp.name || 'J').charAt(0).toUpperCase();
+        $('p2-elo').textContent    = opp.elo  || 1200;
+        setAvatar('p2-avatar', opp.name, opp.profile_pic || null);
+        renderStreak('p2-streak', streakFromScore(opp.score || 0), 'p2');
+    }
+}
+
+// 2 caractères d'initiales (prend "First Last" → "FL", sinon les 2 premiers chars)
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = String(name).trim().split(/[\s_\-\.]+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return String(name).substring(0, 2).toUpperCase();
+}
+
+// Avatar : image si profile_pic, sinon initiales
+function setAvatar(elId, name, picUrl) {
+    const el = $(elId);
+    if (!el) return;
+    if (picUrl) {
+        el.innerHTML = `<img src="${picUrl}" alt="${name || ''}" onerror="this.parentNode.textContent='${getInitials(name)}'">`;
+    } else {
+        el.textContent = getInitials(name);
+    }
+}
+
+// Streak basé sur le score (visuel de momentum, 0-5 dots)
+function streakFromScore(score) {
+    return Math.min(5, Math.max(0, Math.floor(score / 100)));
+}
+
+function renderStreak(elId, count, who) {
+    const c = $(elId);
+    if (!c) return;
+    c.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot' + (i < count ? ' on ' + who : '');
+        c.appendChild(d);
     }
 }
 
@@ -676,6 +908,75 @@ function spawnParticles() {
 }
 
 // ══════════════════════════════════════════════════
+// FOND : gemmes wireframe SVG flottantes
+//   Une seule passe d'init au boot. Les animations tournent ensuite
+//   100% côté CSS / GPU (transform composé) — aucun rAF, aucun coût
+//   sur le thread principal pendant le jeu.
+// ══════════════════════════════════════════════════
+function initBgGems() {
+    const host = $('bg-gems');
+    if (!host) return;
+
+    // Un seul markup SVG pour un octaèdre filaire — réutilisé partout via cloneNode.
+    const svgNS = 'http://www.w3.org/2000/svg';
+    function buildGemSvg() {
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('viewBox', '0 0 100 100');
+        const g = document.createElementNS(svgNS, 'g');
+        g.setAttribute('fill', 'none');
+        g.setAttribute('stroke', '#d4af37');
+        g.setAttribute('stroke-width', '1.4');
+        g.setAttribute('stroke-linejoin', 'round');
+        // Contour + lignes internes (vue de face de l'octaèdre)
+        const paths = [
+            'M50,8 L92,50 L50,92 L8,50 Z',  // contour losange
+            'M50,8 L50,92',                  // diag verticale
+            'M8,50 L92,50',                  // diag horizontale
+            'M50,8 L35,50 L50,92 L65,50 Z'   // facettes internes
+        ];
+        paths.forEach(d => {
+            const p = document.createElementNS(svgNS, 'path');
+            p.setAttribute('d', d);
+            g.appendChild(p);
+        });
+        svg.appendChild(g);
+        return svg;
+    }
+
+    const COUNT = 16;
+    const variants = ['v1', 'v2', 'v3'];
+    const W = window.innerWidth, H = window.innerHeight;
+    const frag = document.createDocumentFragment();
+
+    for (let i = 0; i < COUNT; i++) {
+        const gem = document.createElement('div');
+        const v = variants[i % variants.length];
+        const size = 40 + Math.random() * 90;        // 40-130 px
+        const opacity = 0.10 + Math.random() * 0.25; // 0.10-0.35
+        const dur = 12 + Math.random() * 14;         // 12-26s par cycle
+        const delay = -Math.random() * dur;          // démarrages décorrelés
+        gem.className = 'bg-gem ' + v;
+        gem.style.cssText =
+            'left:'   + (Math.random() * W) + 'px;' +
+            'top:'    + (Math.random() * H) + 'px;' +
+            'width:'  + size + 'px;' +
+            'height:' + size + 'px;' +
+            'opacity:' + opacity + ';' +
+            'animation-duration:' + dur + 's;' +
+            'animation-delay:'    + delay + 's;';
+        gem.appendChild(buildGemSvg());
+        frag.appendChild(gem);
+    }
+    host.appendChild(frag);
+}
+
+
+// ══════════════════════════════════════════════════
 // START
 // ══════════════════════════════════════════════════
-init();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { initBgGems(); init(); });
+} else {
+    initBgGems();
+    init();
+}

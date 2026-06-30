@@ -1,0 +1,266 @@
+/* ══════════════════════════════════════════════════
+   QPC — Game 1v1 — Couche FX (effets visuels + audio)
+   À charger APRÈS game-1v1.css
+   Respecte les variables CSS existantes (gold/p2-color/success/danger)
+   Compatible light mode
+══════════════════════════════════════════════════ */
+
+/* ─── SCREEN FLASH (overlay full-screen) ─── */
+.fx-screen-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 250;
+    opacity: 0;
+    transition: opacity .5s ease-out;
+}
+.fx-screen-flash.gold   { background: radial-gradient(ellipse at center, var(--gold-dim) 0%, transparent 60%); }
+.fx-screen-flash.blue   { background: radial-gradient(ellipse at center, rgba(85,153,221,0.25) 0%, transparent 60%); }
+.fx-screen-flash.green  { background: radial-gradient(ellipse at center, rgba(76,175,120,0.30) 0%, transparent 60%); }
+.fx-screen-flash.red    { background: radial-gradient(ellipse at center, rgba(224,85,85,0.25) 0%, transparent 60%); }
+
+/* ─── BIG MARK (✓ / ✗ / ⏱ géant central) ─── */
+.fx-big-mark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    z-index: 320;
+    pointer-events: none;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(120px, 22vw, 220px);
+    font-weight: 900;
+    line-height: 1;
+    opacity: 0;
+}
+.fx-big-mark.success { color: var(--success); text-shadow: 0 0 40px rgba(76,175,120,0.7); }
+.fx-big-mark.danger  { color: var(--danger);  text-shadow: 0 0 40px rgba(224,85,85,0.7); }
+.fx-big-mark.gold    { color: var(--gold);    text-shadow: 0 0 40px rgba(212,175,55,0.7); }
+
+@keyframes fx-mark-in {
+    0%   { transform: translate(-50%, -50%) scale(0)   rotate(-15deg); opacity: 0; }
+    40%  { transform: translate(-50%, -50%) scale(1.1) rotate(0deg);   opacity: 1; }
+    70%  { transform: translate(-50%, -50%) scale(1)   rotate(0deg);   opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.4) rotate(0deg);   opacity: 0; }
+}
+.fx-big-mark.show { animation: fx-mark-in 1.2s ease-out forwards; }
+
+/* ─── FLOATING DELTA (+100 / -25 qui s'envolent depuis le score) ─── */
+.fx-float-delta {
+    position: fixed;
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 350;
+    opacity: 0;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    letter-spacing: 1px;
+}
+.fx-float-delta.up   { color: var(--success); }
+.fx-float-delta.down { color: var(--danger);  }
+.fx-float-delta.gold { color: var(--gold);    }
+
+@keyframes fx-float-up {
+    0%   { transform: translate(-50%, 0)    scale(0.5); opacity: 0; }
+    20%  { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -90px) scale(1.4); opacity: 0; }
+}
+@keyframes fx-float-down {
+    0%   { transform: translate(-50%, 0)    scale(0.5); opacity: 0; }
+    20%  { transform: translate(-50%, 10px)  scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, 80px)  scale(1.2); opacity: 0; }
+}
+.fx-float-delta.anim-up   { animation: fx-float-up   1.4s ease-out forwards; }
+.fx-float-delta.anim-down { animation: fx-float-down 1.4s ease-out forwards; }
+
+/* ─── SHOCKWAVE (anneau qui se propage depuis un point) ─── */
+.fx-shockwave {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 240;
+    opacity: 0;
+    border: 3px solid var(--gold);
+    transform: translate(-50%, -50%);
+}
+.fx-shockwave.gold  { border-color: var(--gold); }
+.fx-shockwave.blue  { border-color: var(--p2-color); }
+.fx-shockwave.green { border-color: var(--success); }
+.fx-shockwave.red   { border-color: var(--danger); }
+
+@keyframes fx-shock {
+    0%   { width: 20px;  height: 20px;  opacity: 1; border-width: 3px; }
+    100% { width: 500px; height: 500px; opacity: 0; border-width: 1px; }
+}
+.fx-shockwave.go { animation: fx-shock 1s ease-out forwards; }
+
+/* ─── CONFETTI (canvas plein écran, dessiné en 1 passe — perf) ─── */
+.fx-confetti-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 330;
+}
+
+/* ─── SCREEN SHAKE (appliqué sur .game-wrap) ─── */
+@keyframes fx-shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-8px, -4px); }
+    20% { transform: translate(8px, 4px); }
+    30% { transform: translate(-6px, 5px); }
+    40% { transform: translate(6px, -5px); }
+    50% { transform: translate(-4px, 3px); }
+    60% { transform: translate(4px, -3px); }
+    70% { transform: translate(-3px, 2px); }
+    80% { transform: translate(3px, -2px); }
+    90% { transform: translate(-1px, 1px); }
+}
+.fx-shaking { animation: fx-shake 0.5s ease-in-out; }
+
+/* ─── QUESTION CARD : flash gold à l'arrivée ─── */
+@keyframes fx-card-flash {
+    0%   { box-shadow: 0 0 0 0 var(--gold-dim); }
+    50%  { box-shadow: 0 0 60px 8px var(--gold-dim); }
+    100% { box-shadow: 0 0 0 0 var(--gold-dim); }
+}
+.question-card.fx-arriving {
+    animation: fx-card-flash 1.2s ease-out;
+}
+
+/* ─── QUESTION : révélation simple (composité : opacity + translateY) ─── */
+.question-text.fx-text-reveal {
+    animation: fx-text-reveal .45s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes fx-text-reveal {
+    0%   { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0);    }
+}
+
+/* Les options entrent via leur transition .visible native (opacity + translateY)
+   définie dans game-1v1.css — plus de flip 3D rotateY ici. */
+
+/* ─── OPTION : dim quand qqn d'autre a buzzé ─── */
+.option-btn.fx-dimmed {
+    opacity: 0.3 !important;
+}
+
+/* ─── OPTION CORRECT : pulse + glow vert ─── */
+@keyframes fx-correct-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,120,0); }
+    50%      { box-shadow: 0 0 40px 4px rgba(76,175,120,0.5); }
+}
+.option-btn.correct.fx-pulse { animation: fx-correct-pulse 1.2s ease-in-out 2; }
+
+/* ─── OPTION WRONG : shake horizontal ─── */
+@keyframes fx-wrong-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-10px); }
+    40%      { transform: translateX(10px); }
+    60%      { transform: translateX(-6px); }
+    80%      { transform: translateX(6px); }
+}
+.option-btn.wrong.fx-shake { animation: fx-wrong-shake 0.4s ease-in-out; }
+
+/* ─── BUZZ : effet pulse intense quand qqn buzz ─── */
+@keyframes fx-buzz-burst-gold {
+    0%   { box-shadow: 0 0 0 0 var(--gold), 0 0 0 0 var(--gold-dim); }
+    100% { box-shadow: 0 0 0 30px transparent, 0 0 0 60px transparent; }
+}
+@keyframes fx-buzz-burst-blue {
+    0%   { box-shadow: 0 0 0 0 var(--p2-color), 0 0 0 0 rgba(85,153,221,0.3); }
+    100% { box-shadow: 0 0 0 30px transparent, 0 0 0 60px transparent; }
+}
+.buzz-btn.fx-burst-gold { animation: fx-buzz-burst-gold 0.7s ease-out; }
+.buzz-btn.fx-burst-blue { animation: fx-buzz-burst-blue 0.7s ease-out; }
+
+/* ─── TIMER : glow rouge intense en fin ─── */
+.timer-number.fx-critical {
+    animation: fx-timer-critical 0.5s ease-in-out infinite alternate;
+}
+@keyframes fx-timer-critical {
+    0%   { transform: translateX(-50%) scale(1);    text-shadow: 0 0 0   var(--danger); }
+    100% { transform: translateX(-50%) scale(1.15); text-shadow: 0 0 20px var(--danger); }
+}
+
+/* ─── AUDIO TOGGLE BUTTON (injecté dans .bottom-bar) ─── */
+.fx-audio-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all .2s;
+    padding: 0;
+}
+.fx-audio-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold-text);
+}
+.fx-audio-btn.muted {
+    border-color: rgba(224,85,85,0.3);
+    color: rgba(224,85,85,0.7);
+}
+.fx-audio-btn svg { width: 16px; height: 16px; }
+
+/* ─── THEME TOGGLE BUTTON (injecté juste à côté du bouton audio) ─── */
+.fx-theme-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all .2s;
+    padding: 0;
+    margin-right: 0.5rem;
+}
+.fx-theme-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold-text);
+}
+.fx-theme-btn svg { width: 16px; height: 16px; }
+
+/* Soleil visible en DARK (propose de passer en light), lune visible en LIGHT */
+.fx-theme-btn .theme-moon { display: none; }
+.fx-theme-btn .theme-sun  { display: block; }
+html.light .fx-theme-btn .theme-moon { display: block; }
+html.light .fx-theme-btn .theme-sun  { display: none; }
+
+/* ─── LIGHT MODE ADJUSTMENTS ─── */
+html.light .fx-screen-flash.gold   { background: radial-gradient(ellipse at center, rgba(212,175,55,0.4) 0%, transparent 60%); }
+html.light .fx-screen-flash.green  { background: radial-gradient(ellipse at center, rgba(76,175,120,0.45) 0%, transparent 60%); }
+html.light .fx-screen-flash.red    { background: radial-gradient(ellipse at center, rgba(224,85,85,0.35) 0%, transparent 60%); }
+html.light .fx-big-mark.success { text-shadow: 0 0 40px rgba(76,175,120,0.5); }
+html.light .fx-big-mark.danger  { text-shadow: 0 0 40px rgba(224,85,85,0.5); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 600px) {
+    .fx-big-mark { font-size: clamp(80px, 30vw, 140px); }
+    .fx-float-delta { font-size: 18px; }
+}
+
+/* ─── REDUCED MOTION — respecte la préférence système ─── */
+@media (prefers-reduced-motion: reduce) {
+    .fx-big-mark.show,
+    .fx-shockwave.go,
+    .fx-shaking,
+    .question-card.fx-arriving,
+    .option-btn.correct.fx-pulse,
+    .option-btn.wrong.fx-shake,
+    .buzz-btn.fx-burst-gold,
+    .buzz-btn.fx-burst-blue {
+        animation: none !important;
+    }
+}

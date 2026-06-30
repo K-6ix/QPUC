@@ -1254,7 +1254,10 @@ function emitM3Finished(roomCode, winnerId, winnerName, scores, message, suddenD
 //  un objet enrichi pour l'affichage cote client.
 // ============================================================================
 function buildFinalRanking(room) {
-    const ELO_BY_RANK = { 1: 50, 2: 30, 3: 0, 4: -20 };
+    // En mode amical, on n'affiche aucun gain/perte d'ELO sur l'écran de fin
+    const ELO_BY_RANK = room.isRanked
+        ? { 1: 50, 2: 30, 3: 0, 4: -20 }
+        : { 1: 0,  2: 0,  3: 0, 4: 0  };
     const ranking = [];
 
     // Finalistes M3
@@ -1334,6 +1337,12 @@ function formatDuration(ms) {
 function saveChampionshipResults(room, suddenDeath) {
     if (!room || room._saved) return;
     room._saved = true; // éviter double-save
+
+    // ── Mode amical : on ne persiste rien en BDD (pas de delta ELO, pas de stats)
+    if (!room.isRanked) {
+        console.log(`[CHAMP AMICAL] ${room.code} terminé — pas de save BDD`);
+        return;
+    }
 
     // Construire le ranking final (1er → 4ème)
     const allPlayers = Object.entries(room.players);
@@ -1634,30 +1643,36 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('champ_create_room', ({ playerId, name }) => {
-        if (!playerId || !name) {
-            socket.emit('champ_error', { message: 'Pseudo ou playerId manquant' });
+    socket.on('champ_create_room', ({ playerId, name, isRanked }) => {
+        if (!playerId) {
+            socket.emit('champ_error', { message: 'playerId manquant' });
             return;
         }
         const code = generateCode();
+        // Flag classé/amical : true par défaut (sécurité)
+        const ranked = isRanked !== false;
+        // Auto-naming : si pas de pseudo (guest), on assigne "Joueur 1" (1er entrant)
+        const assignedName = (name && name.trim()) ? name.trim().slice(0, 20) : 'Joueur 1';
+
         rooms[code] = {
             code, status: 'lobby', hostId: playerId, createdAt: Date.now(),
+            isRanked: ranked,
             players: {
                 [playerId]: {
-                    socketId: socket.id, name: name.trim().slice(0, 20),
+                    socketId: socket.id, name: assignedName,
                     ready: false, alive: true, score: 0, m3Score: 0, joinedAt: Date.now()
                 }
             }
         };
         socket.join(code);
         socket.data = { playerId, roomCode: code };
-        console.log(`[ROOM_CREATED] ${code} par ${name}`);
-        socket.emit('champ_room_joined', { code, playerId });
+        console.log(`[ROOM_CREATED] ${code} par ${assignedName} ${ranked ? '[CLASSÉ]' : '[AMICAL]'}`);
+        socket.emit('champ_room_joined', { code, playerId, name: assignedName, isRanked: ranked });
         broadcastRoom(code);
     });
 
     socket.on('champ_join_room', ({ playerId, name, code }) => {
-        if (!playerId || !name || !code) {
+        if (!playerId || !code) {
             socket.emit('champ_error', { message: 'Donnees incompletes' });
             return;
         }
@@ -1669,7 +1684,7 @@ io.on('connection', (socket) => {
             room.players[playerId].socketId = socket.id;
             socket.join(code);
             socket.data = { playerId, roomCode: code };
-            socket.emit('champ_room_joined', { code, playerId });
+            socket.emit('champ_room_joined', { code, playerId, name: room.players[playerId].name, isRanked: room.isRanked });
             broadcastRoom(code);
             return;
         }
@@ -1677,14 +1692,17 @@ io.on('connection', (socket) => {
             socket.emit('champ_error', { message: 'Room pleine (4 joueurs max).' });
             return;
         }
+        // Auto-naming : si pas de pseudo (guest), on assigne "Joueur N" (N = ordre d'arrivée)
+        const nextNum = Object.keys(room.players).length + 1;
+        const assignedName = (name && name.trim()) ? name.trim().slice(0, 20) : `Joueur ${nextNum}`;
         room.players[playerId] = {
-            socketId: socket.id, name: name.trim().slice(0, 20),
+            socketId: socket.id, name: assignedName,
             ready: false, alive: true, score: 0, m3Score: 0, joinedAt: Date.now()
         };
         socket.join(code);
         socket.data = { playerId, roomCode: code };
-        console.log(`[JOIN] ${name} rejoint ${code}`);
-        socket.emit('champ_room_joined', { code, playerId });
+        console.log(`[JOIN] ${assignedName} rejoint ${code}`);
+        socket.emit('champ_room_joined', { code, playerId, name: assignedName, isRanked: room.isRanked });
         broadcastRoom(code);
     });
 
@@ -1720,6 +1738,15 @@ io.on('connection', (socket) => {
                     room.rejoinTimer = setTimeout(() => {
                         console.log(`[CHAMP] ${roomCode} : timeout rejoin, on lance M1 quand même`);
                         if (room.status === 'awaiting_rejoin') {
+                            // Sécurité : si personne n'a rejoint (tous encore déconnectés),
+                            // on cleanup la room au lieu de lancer M1 dans le vide.
+                            const connected = Object.values(room.players).filter(p => !p.disconnected);
+                            if (connected.length === 0) {
+                                console.log(`[CLEANUP] ${roomCode} : rejoinTimer fired mais 0 joueur connecté, suppression`);
+                                clearAllTimers(room);
+                                delete rooms[roomCode];
+                                return;
+                            }
                             room.status = 'game_countdown';
                             io.to(roomCode).emit('champ_match_starting', { in: 3 });
                             let ct = 3;
@@ -1839,12 +1866,29 @@ function handleLeave(socket, reason) {
         console.log(`[MID_GAME_LEAVE] ${player.name} sur ${roomCode} en ${room.status} (${reason})`);
         player.disconnected = true;
 
+        // ── Joueur déjà éliminé (M1) ou déjà disqualifié : on note la déco mais
+        //    pas de re-disqualification ni de notif (sinon ça casse l'état de la room).
+        if (!player.alive || player.disqualified) {
+            console.log(`[QUIET_LEAVE] ${player.name} était déjà éliminé/disqualifié, pas de cascade`);
+            return;
+        }
+
+        // ── Phases de transition : disconnects attendus pendant la navigation
+        //    lobby.php → game.php. Ne PAS cleanup ici, le rejoinTimer (8s) gère.
+        const isTransitionPhase = (room.status === 'awaiting_rejoin' || room.status === 'game_countdown');
+
         // Si tous les joueurs sont deconnectes : nettoyer immédiatement
+        // (sauf en phase de transition où les déco sont attendues)
         const stillConnected = Object.values(room.players).filter(p => !p.disconnected);
-        if (stillConnected.length === 0) {
+        if (stillConnected.length === 0 && !isTransitionPhase) {
             console.log(`[CLEANUP] Room ${roomCode} : tous les joueurs sont partis, suppression`);
             clearAllTimers(room);
             delete rooms[roomCode];
+            return;
+        }
+        if (stillConnected.length === 0 && isTransitionPhase) {
+            console.log(`[NAV_TRANSITION] ${roomCode} : tous déconnectés en ${room.status}, attente du rejoinTimer (8s)`);
+            // On ne fait rien : le rejoinTimer va vérifier dans 8s si quelqu'un est revenu
             return;
         }
 
@@ -1856,6 +1900,10 @@ function handleLeave(socket, reason) {
             delete rooms[roomCode];
             return;
         }
+
+        // En phase de transition, on ne déclenche pas non plus le timer de disqualification
+        // ni la notif aux autres clients (qui sont eux-mêmes en train de naviguer).
+        if (isTransitionPhase) return;
 
         // Notifier les autres qu'un joueur a déconnecté (timer 10s visible côté client)
         io.to(roomCode).emit('champ_player_disconnected', {
