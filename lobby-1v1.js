@@ -13,7 +13,7 @@
 // ────────────────────────────────────────────
 // CONFIG
 // ────────────────────────────────────────────
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = (window.QPC_CONFIG && window.QPC_CONFIG.SERVER_URL) || 'http://localhost:3000';
 const MY_ELO     = parseInt(localStorage.getItem('qpc_elo'))  || 1200;
 const MY_NAME    = localStorage.getItem('qpc_name') || 'Joueur';
 
@@ -44,6 +44,13 @@ function getDivisionLabel(elo) {
 }
 
 function $(id) { return document.getElementById(id); }
+
+// Échappe le HTML pour éviter toute injection via un pseudo joueur
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+}
 
 // ────────────────────────────────────────────
 // INIT
@@ -217,7 +224,7 @@ function updateLobbyPlayers(players) {
             <div class="player-avatar" style="background:linear-gradient(135deg,#2255aa,#5599dd);border-color:#5599dd;color:#fff;">
                 ${p.name.charAt(0).toUpperCase()}
             </div>
-            <div class="player-name" style="color:var(--text1);">${p.name}</div>
+            <div class="player-name" style="color:var(--text1);">${escapeHtml(p.name)}</div>
             <div class="player-elo" style="color:#5599dd;">${p.elo} ELO</div>
         `;
     }

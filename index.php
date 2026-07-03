@@ -1,4 +1,23 @@
-<?php session_start(); ?>
+<?php
+require_once __DIR__ . '/csrf.php';
+require "db.php";
+
+// ── Top 5 du classement (ELO) pour la section vitrine ────────
+// Même logique que classement.php : ordre ELO (pas la vue
+// `leaderboard`, qui classe par score_total). Requête gardée :
+// si la table manque, la section affiche l'état vide proprement.
+$lb_top = [];
+if (isset($conn) && $conn instanceof mysqli) {
+    $lb_res = @$conn->query("
+        SELECT u.username, ps.elo, ps.total_games
+        FROM player_stats ps
+        JOIN users u ON u.id = ps.user_id
+        ORDER BY ps.elo DESC, ps.victories DESC, u.username ASC
+        LIMIT 5
+    ");
+    if ($lb_res) $lb_top = $lb_res->fetch_all(MYSQLI_ASSOC);
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1193,7 +1212,7 @@
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
       <li><a href="game.php" class="btn-play">▶ Play</a></li>
-      <li><a href="#classement">Classement</a></li>
+      <li><a href="classement.php">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
     </ul>
   </nav>
@@ -1255,7 +1274,7 @@
         <span>Rules</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
-      <a href="#classement" data-close class="drawer-link">
+      <a href="classement.php" data-close class="drawer-link">
         <span>Classement</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
@@ -1266,7 +1285,7 @@
     </nav>
 
     <div class="drawer-footer">
-      <a href="game.html" data-close class="drawer-cta primary">
+      <a href="game.php" data-close class="drawer-cta primary">
         ▶ Jouer
       </a>
       <?php if (isset($_SESSION['user_id'])): ?>
@@ -1292,7 +1311,7 @@
   </h1>
   <p class="hero-sub">Affronte tes amis · Domine le classement · Deviens la légende</p>
   <div class="hero-ctas">
-    <a href="game.html" class="cta-primary">Jouer maintenant</a>
+    <a href="game.php" class="cta-primary">Jouer maintenant</a>
     <a href="rules.php" class="cta-secondary">Voir les règles</a>
   </div>
   <div class="scroll-hint">
@@ -1410,58 +1429,30 @@
     <div class="lb-header">
       <span>#</span>
       <span>Joueur</span>
-      <span>Score</span>
+      <span>ELO</span>
       <span>Parties</span>
     </div>
+    <?php if (empty($lb_top)): ?>
+    <div class="lb-soon">Le classement se remplit dès les premiers duels classés — sois le premier champion.</div>
+    <?php else: foreach ($lb_top as $i => $p):
+        $rank = $i + 1;
+        $rc   = [1 => 'gold', 2 => 'silver', 3 => 'bronze'][$rank] ?? 'other';
+        $ini  = mb_strtoupper(mb_substr($p['username'], 0, 2, 'UTF-8'), 'UTF-8');
+    ?>
     <div class="lb-row">
-      <div class="lb-rank gold">01</div>
+      <div class="lb-rank <?= $rc ?>"><?= str_pad($rank, 2, '0', STR_PAD_LEFT) ?></div>
       <div class="lb-player">
-        <div class="lb-avatar">OE</div>
+        <div class="lb-avatar"><?= htmlspecialchars($ini) ?></div>
         <div>
-          <span class="lb-name">Othmane E.</span>
-          <span class="lb-badge">Champion</span>
+          <span class="lb-name"><?= htmlspecialchars($p['username']) ?></span>
+          <?php if ($rank === 1): ?><span class="lb-badge">Champion</span><?php endif; ?>
         </div>
       </div>
-      <div class="lb-score">12 840</div>
-      <div class="lb-games">47 parties</div>
+      <div class="lb-score"><?= number_format((int)$p['elo'], 0, ',', ' ') ?></div>
+      <div class="lb-games"><?= (int)$p['total_games'] ?> partie<?= ((int)$p['total_games'] > 1 ? 's' : '') ?></div>
     </div>
-    <div class="lb-row">
-      <div class="lb-rank silver">02</div>
-      <div class="lb-player">
-        <div class="lb-avatar">MB</div>
-        <div><span class="lb-name">Maxime B.</span></div>
-      </div>
-      <div class="lb-score">11 200</div>
-      <div class="lb-games">39 parties</div>
-    </div>
-    <div class="lb-row">
-      <div class="lb-rank bronze">03</div>
-      <div class="lb-player">
-        <div class="lb-avatar">ON</div>
-        <div><span class="lb-name">Ousmane N.</span></div>
-      </div>
-      <div class="lb-score">9 750</div>
-      <div class="lb-games">33 parties</div>
-    </div>
-    <div class="lb-row">
-      <div class="lb-rank other">04</div>
-      <div class="lb-player">
-        <div class="lb-avatar">AY</div>
-        <div><span class="lb-name">Abdelghafour Y.</span></div>
-      </div>
-      <div class="lb-score">8 300</div>
-      <div class="lb-games">28 parties</div>
-    </div>
-    <div class="lb-row">
-      <div class="lb-rank other">05</div>
-      <div class="lb-player">
-        <div class="lb-avatar">BA</div>
-        <div><span class="lb-name">Bamba A.</span></div>
-      </div>
-      <div class="lb-score">7 610</div>
-      <div class="lb-games">24 parties</div>
-    </div>
-    <div class="lb-soon">Connectez-vous pour apparaître dans le classement</div>
+    <?php endforeach; endif; ?>
+    <a class="lb-soon" href="classement.php" style="display:block;text-decoration:none;">Voir le classement complet →</a>
   </div>
 </div>
 
@@ -1469,7 +1460,7 @@
 <div class="cta-banner reveal">
   <h2>Prêt à devenir <em style="background:var(--metallic);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Champion</em> ?</h2>
   <p>Rejoignez la compétition dès maintenant. Gratuit, sans téléchargement.</p>
-  <a href="game.html" class="cta-primary">Commencer à jouer</a>
+  <a href="game.php" class="cta-primary">Commencer à jouer</a>
 </div>
 
 <!-- ════ FOOTER ════ -->
@@ -1482,12 +1473,12 @@
     <ul class="footer-nav">
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
-      <li><a href="#classement">Classement</a></li>
+      <li><a href="classement.php">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
       <li><a href="connexion.php">Connexion</a></li>
     </ul>
     <div class="footer-cta-col">
-      <a href="game.html" class="footer-play-btn">
+      <a href="game.php" class="footer-play-btn">
         <span class="footer-play-icon">▶</span>
         Jouer maintenant
       </a>

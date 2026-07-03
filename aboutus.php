@@ -1,4 +1,4 @@
-<?php session_start(); ?>
+<?php require_once __DIR__ . '/csrf.php'; ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1569,7 +1569,7 @@ html.light .scene .scene-headline .l2 {
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
       <li><a href="game.php" class="btn-play">▶ Play</a></li>
-      <li><a href="#classement">Classement</a></li>
+      <li><a href="classement.php">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
     </ul>
   </nav>
@@ -1624,7 +1624,7 @@ html.light .scene .scene-headline .l2 {
         <span>Rules</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
-      <a href="index.php#classement" data-close class="drawer-link">
+      <a href="classement.php" data-close class="drawer-link">
         <span>Classement</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
@@ -1634,7 +1634,7 @@ html.light .scene .scene-headline .l2 {
       </a>
     </nav>
     <div class="drawer-footer">
-      <a href="game.html" data-close class="drawer-cta primary">▶ Jouer</a>
+      <a href="game.php" data-close class="drawer-cta primary">▶ Jouer</a>
       <?php if (isset($_SESSION['user_id'])): ?>
         <a href="dashboard.php" data-close class="drawer-cta secondary">Dashboard</a>
       <?php else: ?>
@@ -2320,12 +2320,12 @@ animate(0);
     <ul class="footer-nav">
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
-      <li><a href="index.php#classement">Classement</a></li>
+      <li><a href="classement.php">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
       <li><a href="connexion.php">Connexion</a></li>
     </ul>
     <div class="footer-cta-col">
-      <a href="game.html" class="footer-play-btn">
+      <a href="game.php" class="footer-play-btn">
         <span class="footer-play-icon">▶</span>
         Jouer maintenant
       </a>

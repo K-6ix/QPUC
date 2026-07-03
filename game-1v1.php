@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
 
 // ── Mode amical (passé via &friendly=1 depuis lobby-1v1.php) ─
@@ -266,29 +266,45 @@ if (!$is_guest) {
     </div>
 </div>
 
-<!-- ── END SCREEN ── -->
+<!-- ── END SCREEN (analytique) ── -->
 <div class="end-screen" id="end-screen">
-    <div class="end-trophy">🏆</div>
-    <div class="end-winner-label">Vainqueur</div>
-    <div class="end-winner-name" id="end-winner-name">—</div>
-    <div class="end-scores">
-        <div class="end-player p1-card" id="end-p1">
-            <div class="end-player-name" id="end-p1-name">J1</div>
-            <div class="end-player-score" id="end-p1-score">0</div>
-            <div class="end-player-elo"  id="end-p1-elo"></div>
+
+    <div class="eg-head eg-seq">
+        <div class="eg-head-left">
+            <div class="eg-verdict" id="eg-verdict">—</div>
+            <div class="eg-sub" id="eg-sub">—</div>
         </div>
-        <div class="end-vs-sep">VS</div>
-        <div class="end-player p2-card" id="end-p2">
-            <div class="end-player-name" id="end-p2-name">J2</div>
-            <div class="end-player-score" id="end-p2-score">0</div>
-            <div class="end-player-elo"  id="end-p2-elo"></div>
+        <div class="eg-chip" id="eg-chip" style="display:none">—</div>
+    </div>
+
+    <div class="eg-grid">
+        <div class="eg-panel eg-seq">
+            <div class="eg-title">Comparaison</div>
+            <div id="eg-cmp"></div>
+        </div>
+        <div class="eg-panel eg-seq">
+            <div class="eg-title">Ta partie</div>
+            <div class="eg-stats" id="eg-stats"></div>
+        </div>
+        <div class="eg-panel eg-full eg-seq" id="eg-film-panel">
+            <div class="eg-title eg-film-title">
+                <span>Le film du match</span>
+                <span class="eg-legend">
+                    <span class="eg-lg me"><i></i>Toi</span>
+                    <span class="eg-lg op"><i></i>Adversaire</span>
+                    <span class="eg-lg no"><i></i>Personne</span>
+                </span>
+            </div>
+            <div class="eg-dots" id="eg-dots"></div>
         </div>
     </div>
 
     <div class="rematch-status" id="rematch-status"></div>
 
-    <div class="end-btns">
+    <div class="end-btns eg-seq">
         <button class="end-btn-primary"   id="rematch-btn">↺ Revanche</button>
+        <a class="end-btn-secondary" id="newduel-btn" href="lobby-1v1.php">Nouveau duel</a>
+        <a class="end-btn-secondary" href="classement.php">🏆 Classement</a>
         <button class="end-btn-secondary" id="dashboard-btn">Dashboard</button>
     </div>
 </div>
@@ -318,6 +334,7 @@ window.QPC_USER = null;
 <?php endif; ?>
 </script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="qpc-config.js"></script>
 <script src="game-1v1-fx.js"></script>
 <script src="game-1v1.js"></script>
 

@@ -1,4 +1,4 @@
-<?php session_start(); ?>
+<?php require_once __DIR__ . '/csrf.php'; ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -561,6 +561,7 @@ if (!empty($_SESSION['error'])): ?>
     <div class="form-box login animation">
         <h2 style="--i:0; --j:18;" class="animation">Connexion</h2>
         <form action="login.php" method="POST">
+            <?= csrf_field() ?>
             <div class="input-box animation" style="--i:1; --j:19;">
                 <input type="text" name="username" placeholder="" required>
                 <label>Username</label>
@@ -590,6 +591,7 @@ if (!empty($_SESSION['error'])): ?>
     <div class="form-box nouveau">
         <h2 class="animation" style="--i:20; --j:0;">Nouveau ?</h2>
         <form action="signup.php" method="POST">
+            <?= csrf_field() ?>
             <div class="input-box animation" style="--i:21; --j:1;">
                 <input type="text" name="username" placeholder="" required>
                 <label>Username</label>

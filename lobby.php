@@ -3,17 +3,13 @@
 //  QPC - Championship Lobby (4 joueurs)
 //  Auth obligatoire SAUF en mode amical (?friendly=1 → guest play autorisé)
 // ============================================================================
-session_start();
+require_once __DIR__ . '/../csrf.php';
 require __DIR__ . "/../db.php";
 
-// ── Mode amical ─────────────────────────────────────────────
-$is_friendly = isset($_GET['friendly']) && $_GET['friendly'] === '1';
-
-// ── Auth conditionnelle ─────────────────────────────────────
-if (!$is_friendly && !isset($_SESSION['user_id'])) {
-    header("Location: ../connexion.php");
-    exit;
-}
+// ── Salon AMICAL uniquement ─────────────────────────────────
+// Le mode CLASSÉ passe désormais par championship/lobby-ranked.php
+// (matchmaking à 4). Ici l'ELO ne bouge jamais → invités autorisés.
+$is_friendly = true;
 
 // ── Defaults guest ──────────────────────────────────────────
 $user_id     = null;
@@ -286,6 +282,7 @@ try {
 })();
 </script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="../qpc-config.js"></script>
 <script src="lobby.js"></script>
 
 </body>

@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php"; // logError() défini ici
 
 // ============================================================

@@ -1,9 +1,10 @@
-<?php session_start(); ?>
+<?php require_once __DIR__ . '/csrf.php'; ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 <title>Entraînement — Question Champion</title>
 
 <!-- ════ ANTI-FLASH : applique le thème global avant le render ════ -->
@@ -1565,7 +1566,10 @@ function sendTrainingResults(abandoned, questionsAsked, avgTime) {
 
     fetch('save_training.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+        },
         body: JSON.stringify(payload),
         credentials: 'same-origin',
     })

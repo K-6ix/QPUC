@@ -1,6 +1,14 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
+
+// ── Protection CSRF ─────────────────────────────────────────
+if (!csrf_verify()) {
+    logError("update_profile.php - CSRF token invalide pour user_id " . ($_SESSION['user_id'] ?? 'inconnu'));
+    $_SESSION['error'] = "Session expirée, veuillez réessayer.";
+    header("Location: dashboard.php");
+    exit;
+}
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");

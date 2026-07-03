@@ -13,20 +13,12 @@ require "db.php";
 
 header("Content-Type: application/json; charset=utf-8");
 
-$SERVER_KEY = 'qpc_server_2026';
-
-$data = json_decode(file_get_contents("php://input"), true);
-if (!is_array($data)) {
-    http_response_code(400);
-    echo json_encode(["ok" => false, "error" => "Payload invalide"]);
-    exit;
-}
-
-if (($data['server_key'] ?? '') !== $SERVER_KEY) {
-    http_response_code(403);
-    echo json_encode(["ok" => false, "error" => "Accès refusé"]);
-    exit;
-}
+// ── Vérification d'enveloppe signée (HMAC) ──────────────────
+// Remplace l'ancien server_key en clair : la clé ne voyage plus jamais.
+// L'enveloppe peut venir du serveur Node directement (local) OU être
+// relayée par le navigateur d'un joueur (prod) — même sécurité.
+require __DIR__ . "/qpc_hmac.php";
+$data = qpc_verify_envelope($conn);
 
 $game_results = $data['game_results'] ?? [];
 if (!is_array($game_results) || count($game_results) === 0) {

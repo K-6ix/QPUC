@@ -4,7 +4,7 @@
 //
 // Met à jour : game_sessions, player_stats, users.score_total
 // ============================================================
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
 
 header("Content-Type: application/json; charset=utf-8");
@@ -15,6 +15,13 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 $uid = (int) $_SESSION['user_id'];
+
+// ── Protection CSRF (token via en-tête X-CSRF-Token) ──
+if (!csrf_verify()) {
+    http_response_code(403);
+    echo json_encode(["ok" => false, "error" => "Requête non autorisée (CSRF)"]);
+    exit;
+}
 
 $data = json_decode(file_get_contents("php://input"), true);
 if (!is_array($data)) {

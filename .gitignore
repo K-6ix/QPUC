@@ -1,0 +1,13 @@
+# Dépendances Node (Koyeb les réinstalle via npm install)
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Dumps de base de données — JAMAIS sur GitHub (données utilisateurs !)
+qpctest_db*.sql
+*.sql.gz
+
+# Secrets locaux éventuels
+.env

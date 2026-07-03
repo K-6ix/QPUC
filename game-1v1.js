@@ -21,7 +21,7 @@
 // ══════════════════════════════════════════════════
 // CONFIG & CONSTANTS
 // ══════════════════════════════════════════════════
-const SERVER_URL    = 'http://localhost:3000';
+const SERVER_URL = (window.QPC_CONFIG && window.QPC_CONFIG.SERVER_URL) || 'http://localhost:3000';
 const LETTERS       = ['A','B','C','D'];
 const POINTS_TO_WIN = 1000;
 
@@ -35,6 +35,29 @@ if (!PLAYER_ID) {
 // Infos posées par la lobby
 const ROOM_CODE = new URLSearchParams(location.search).get('room')
                    || localStorage.getItem('qpc_room') || '';
+
+// ══════════════════════════════════════════════════
+// FILM DU MATCH — accumulé côté client pour l'écran de fin.
+// Chaque question résolue produit { who:'me'|'op'|'no', tier }.
+// Aucune donnée serveur supplémentaire nécessaire :
+//   question_text  → difficulté de la question en cours
+//   answer_result  → qui a marqué (ou raté définitivement)
+//   time_out       → personne n'a pris le point
+// ══════════════════════════════════════════════════
+const MATCH_FILM = [];
+let filmTier = null;   // difficulté de la question en cours
+let filmDone = true;   // la question courante est-elle résolue ?
+
+function filmFlush() {
+    // Question précédente jamais résolue explicitement → personne
+    if (filmTier !== null && !filmDone) MATCH_FILM.push({ who: 'no', tier: filmTier });
+    filmDone = true;
+}
+function filmResolve(who) {
+    if (filmDone) return; // déjà résolue (anti-doublon)
+    MATCH_FILM.push({ who, tier: filmTier });
+    filmDone = true;
+}
 const MY_NAME   = localStorage.getItem('qpc_name') || 'Joueur';
 const MY_ELO    = parseInt(localStorage.getItem('qpc_elo')) || 1200;
 
@@ -57,6 +80,13 @@ let myRematchSent = false;
 // HELPERS
 // ══════════════════════════════════════════════════
 function $(id) { return document.getElementById(id); }
+
+// Échappe le HTML pour éviter toute injection via un pseudo/pic joueur
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+}
 
 // ══════════════════════════════════════════════════
 // INIT
@@ -141,6 +171,7 @@ function init() {
     socket.on('opponent_chance',  onOpponentChance);
     socket.on('time_out',         onTimeOut);
     socket.on('game_over',        onGameOver);
+    socket.on('save_envelope',    deliverSaveEnvelope);
     socket.on('rematch_pending',  onRematchPending);
     socket.on('rematch_ready',    onRematchReady);
     socket.on('player_left',      onPlayerLeft);
@@ -229,6 +260,12 @@ function onCountdown({ count }) {
 }
 
 function onQuestionText({ index, total, question, catLabel, catIcon, difficulty, scores, pointsToWin }) {
+    // ── Film : nouvelle partie (Q1) → reset ; sinon flush de la question précédente
+    if (index === 0) { MATCH_FILM.length = 0; filmTier = null; filmDone = true; }
+    filmFlush();
+    filmTier = difficulty || 'moyen';
+    filmDone = false;
+
     $('countdown-overlay').classList.add('hidden');
 
     // Reset state
@@ -344,6 +381,12 @@ function onAnswerResult({ answerId, correct, pts, chosen, answer, scores, timeou
     showFeedback(correct, pts, name, timeout);
     updateScores(scores, POINTS_TO_WIN);
 
+    // ── Film : la question est résolue si (bonne réponse) ou (fin définitive :
+    //    timeout de buzz, ou mauvaise réponse AVEC révélation de la bonne).
+    //    Une mauvaise réponse sans `answer` = l'adversaire a encore sa chance.
+    if (correct) filmResolve(answerId === PLAYER_ID ? 'me' : 'op');
+    else if (timeout || answer) filmResolve('no');
+
     if (correct && answerId === PLAYER_ID) spawnParticles();
 
     // FX : big mark + flash + confetti + son selon contexte
@@ -391,6 +434,7 @@ function onOpponentChance({ playerId, timeLeft, wrongAnswer, wrongPlayerId }) {
 
 function onTimeOut({ answer, scores }) {
     answered = true;
+    filmResolve('no'); // personne n'a pris le point
     revealAnswer(answer, null, false);
     updateScores(scores, POINTS_TO_WIN);
     setBuzzState('locked');
@@ -402,8 +446,26 @@ function onTimeOut({ answer, scores }) {
     window.QPCFx?.onAnswerResult({ correct: false, isMe: false, timeout: true });
 }
 
+// ── Relais de sauvegarde signée ───────────────────────────────
+// En prod, l'hébergeur PHP (InfinityFree) bloque les requêtes venant du
+// serveur Node. Le serveur nous envoie donc une enveloppe SIGNÉE (HMAC)
+// que le navigateur livre lui-même à save_elo.php. Impossible à falsifier
+// sans la clé secrète ; dédupliquée côté PHP (les 2 joueurs la livrent).
+function deliverSaveEnvelope(envelope) {
+    if (!envelope || !envelope.payload || !envelope.signature) return;
+    const post = () => fetch('save_elo.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: envelope.payload, signature: envelope.signature }),
+        credentials: 'same-origin',
+    });
+    post().then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+          .catch(() => setTimeout(() => post().catch(() => {}), 2000)); // 1 retry
+}
+
 function onGameOver({ winnerId, winnerName, scores, eloResult, forfeit }) {
     stopTimer();
+    filmFlush(); // clôt la question en cours si le match s'arrête dessus (forfait…)
     // Reset état revanche pour la nouvelle fin de partie
     myRematchSent = false;
     $('rematch-btn').disabled = false;
@@ -789,7 +851,10 @@ function setAvatar(elId, name, picUrl) {
     const el = $(elId);
     if (!el) return;
     if (picUrl) {
-        el.innerHTML = `<img src="${picUrl}" alt="${name || ''}" onerror="this.parentNode.textContent='${getInitials(name)}'">`;
+        // Fallback initiales géré en JS (pas via un attribut onerror inline) pour éviter toute injection
+        el.innerHTML = `<img src="${escapeHtml(picUrl)}" alt="${escapeHtml(name)}">`;
+        const img = el.querySelector('img');
+        if (img) img.onerror = () => { el.textContent = getInitials(name); };
     } else {
         el.textContent = getInitials(name);
     }
@@ -836,40 +901,81 @@ function showFeedback(correct, pts, who, timeout) {
 function showEndScreen(winnerId, winnerName, scores, eloResult, forfeit) {
     const me  = scores.find(p => p.id === myId)  || scores[0];
     const opp = scores.find(p => p.id !== myId) || scores[1];
+    const won = me?.id === winnerId;
 
-    $('end-winner-name').textContent = (winnerName || '—') + (forfeit ? ' (forfait)' : '');
-    $('end-p1-name').textContent     = me?.name  || '—';
-    $('end-p2-name').textContent     = opp?.name || '—';
-    $('end-p1-score').textContent    = me?.score  ?? 0;
-    $('end-p2-score').textContent    = opp?.score ?? 0;
+    // ── Verdict + sous-titre ─────────────────────────────
+    const screen = $('end-screen');
+    screen.classList.toggle('defeat', !won);
+    $('eg-verdict').textContent = won ? 'VICTOIRE' : 'DÉFAITE';
+    $('eg-sub').textContent = forfeit
+        ? (won ? `${opp?.name || "L'adversaire"} a quitté le duel — victoire par forfait`
+               : 'Duel terminé par forfait')
+        : `Duel ${eloResult ? 'classé' : 'amical'} · vs ${opp?.name || '—'}`;
 
-    // ELO variation
-    if (eloResult && me) {
-        const myElo = eloResult[me.id];
-        if (myElo) {
-            const sign = myElo.delta >= 0 ? '+' : '';
-            $('end-p1-elo').innerHTML =
-                `<span class="${myElo.delta >= 0 ? 'elo-up' : 'elo-down'}">${sign}${myElo.delta} ELO (${myElo.newElo})</span>`;
-            localStorage.setItem('qpc_elo', myElo.newElo);
-        }
-    }
-    if (eloResult && opp) {
-        const oppElo = eloResult[opp.id];
-        if (oppElo) {
-            const sign = oppElo.delta >= 0 ? '+' : '';
-            $('end-p2-elo').innerHTML =
-                `<span class="${oppElo.delta >= 0 ? 'elo-up' : 'elo-down'}">${sign}${oppElo.delta} ELO (${oppElo.newElo})</span>`;
-        }
+    // ── Chip ELO (classé uniquement) ─────────────────────
+    const chip  = $('eg-chip');
+    const myElo = eloResult ? eloResult[me?.id] : null;
+    if (myElo) {
+        const sign = myElo.delta >= 0 ? '+' : '';
+        chip.textContent = `${sign}${myElo.delta} → ${myElo.newElo}`;
+        chip.className   = 'eg-chip ' + (myElo.delta >= 0 ? 'up' : 'down');
+        chip.style.display = '';
+        localStorage.setItem('qpc_elo', myElo.newElo);
+    } else {
+        chip.style.display = 'none';
     }
 
-    // Winner highlight
-    $('end-p1').classList.toggle('winner', me?.id  === winnerId);
-    $('end-p2').classList.toggle('winner', opp?.id === winnerId);
+    // ── Comparaison (barres animées) ─────────────────────
+    const prec = p => { const t = (p?.correct || 0) + (p?.wrong || 0); return t ? Math.round(100 * (p.correct || 0) / t) : 0; };
+    const bar = (label, a, b, unitA = '', unitB = '') => {
+        const tot = (a + b) || 1;
+        return `<div class="eg-cmp">
+            <div class="eg-cmp-l"><b>${label}</b><span><b>${a}${unitA}</b> / ${b}${unitB}</span></div>
+            <div class="eg-cmp-bars">
+                <div class="me" data-w="${Math.round(100 * a / tot)}"></div>
+                <div class="op" data-w="${Math.round(100 * b / tot)}"></div>
+            </div>
+        </div>`;
+    };
+    $('eg-cmp').innerHTML =
+        bar('Score', me?.score ?? 0, opp?.score ?? 0) +
+        bar('Bonnes réponses', me?.correct ?? 0, opp?.correct ?? 0) +
+        bar('Précision', prec(me), prec(opp), '%', '%');
 
-    // Si forfait, on cache le bouton revanche
+    // ── Ta partie ────────────────────────────────────────
+    let bestStreak = 0, cur = 0;
+    MATCH_FILM.forEach(e => { cur = (e.who === 'me') ? cur + 1 : 0; if (cur > bestStreak) bestStreak = cur; });
+    $('eg-stats').innerHTML = `
+        <div class="eg-stat"><div class="sv">${me?.correct ?? 0}</div><div class="sl">Bonnes rép.</div></div>
+        <div class="eg-stat"><div class="sv">${prec(me)}%</div><div class="sl">Précision</div></div>
+        <div class="eg-stat"><div class="sv">${bestStreak}</div><div class="sl">Meilleure série</div></div>`;
+
+    // ── Film du match ────────────────────────────────────
+    const tierCls = t => (t === 'facile' ? 'f' : t === 'difficile' ? 'd' : 'm');
+    if (MATCH_FILM.length) {
+        $('eg-film-panel').style.display = '';
+        $('eg-dots').innerHTML = MATCH_FILM.map((e, i) => `
+            <div class="eg-fq">
+                <div class="eg-dot ${e.who}" style="animation-delay:${i * 70}ms">${e.who === 'no' ? '—' : '✓'}</div>
+                <div class="eg-ql">Q${i + 1}</div>
+                <span class="eg-tier ${tierCls(e.tier)}"></span>
+            </div>`).join('');
+    } else {
+        $('eg-film-panel').style.display = 'none';
+    }
+
+    // ── Actions ──────────────────────────────────────────
     $('rematch-btn').style.display = forfeit ? 'none' : '';
+    const nd = $('newduel-btn');
+    if (nd) nd.href = eloResult ? 'lobby-ranked.php' : 'lobby-1v1.php';
 
-    $('end-screen').classList.add('visible');
+    screen.classList.add('visible');
+
+    // Barres : largeur appliquée après le paint → la transition CSS joue
+    requestAnimationFrame(() => setTimeout(() => {
+        document.querySelectorAll('#eg-cmp .eg-cmp-bars > div')
+            .forEach(b => { b.style.width = b.dataset.w + '%'; });
+    }, 250));
 }
 
 // ══════════════════════════════════════════════════

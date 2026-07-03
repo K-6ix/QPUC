@@ -1,0 +1,17 @@
+# ════════════════════════════════════════════════════════════
+#  .htaccess — Durcissement production (InfinityFree / Apache)
+# ════════════════════════════════════════════════════════════
+
+# Pas de listing des dossiers
+Options -Indexes
+
+# Fichiers sensibles : accès web direct interdit
+# (ils restent utilisables par le code PHP via require/include)
+<FilesMatch "^(qpc_secret\.php|qpc_hmac\.php|db\.php|csrf\.php|package(-lock)?\.json|server(-championship)?\.js)$">
+  Require all denied
+</FilesMatch>
+
+# Aucun dump SQL, log ou backup ne doit être téléchargeable
+<FilesMatch "\.(sql|log|env|bak|ini)$">
+  Require all denied
+</FilesMatch>
