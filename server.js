@@ -24,18 +24,76 @@ const fs         = require('fs');
 // ── Config API PHP (Apache) pour persister ELO en BDD ──
 // Adapter le chemin selon votre installation XAMPP
 const PHP_BASE_URL = process.env.PHP_URL || 'http://localhost/qvpcPhpV1';
-const SERVER_KEY   = 'qpc_server_2026';  // doit matcher save_elo.php
+// Clé secrète partagée Node ↔ PHP (HMAC).
+// En prod : variable d'env SERVER_KEY sur Koyeb — doit être IDENTIQUE à
+// QPC_SERVER_KEY dans qpc_secret.php côté hébergeur PHP.
+const SERVER_KEY   = process.env.SERVER_KEY || 'qpc_server_2026';
+// DIRECT_SAVE=0 en prod : InfinityFree bloque les requêtes serveur→serveur,
+// on coupe donc l'appel direct (la sauvegarde passe par le relais navigateur).
+const DIRECT_SAVE  = process.env.DIRECT_SAVE !== '0';
+
+const https  = require('https');
+const crypto = require('crypto');
+
+// Signe un objet → enveloppe { payload, signature } vérifiable côté PHP.
+// Le navigateur peut transporter cette enveloppe sans pouvoir la falsifier :
+// modifier 1 caractère du payload invalide la signature HMAC-SHA256.
+function signEnvelope(obj) {
+    const payload   = JSON.stringify(obj);
+    const signature = crypto.createHmac('sha256', SERVER_KEY).update(payload).digest('hex');
+    return { payload, signature };
+}
+
+// POST JSON vers l'API PHP (gère http:// ET https://)
+function postToPhp(pathname, bodyObj, tag) {
+    if (!DIRECT_SAVE) return;
+    try {
+        const url  = new URL(PHP_BASE_URL + pathname);
+        const body = JSON.stringify(bodyObj);
+        const mod  = url.protocol === 'https:' ? https : http;
+        const req  = mod.request({
+            hostname: url.hostname,
+            port:     url.port || (url.protocol === 'https:' ? 443 : 80),
+            path:     url.pathname,
+            method:   'POST',
+            headers: {
+                'Content-Type':   'application/json',
+                'Content-Length':  Buffer.byteLength(body),
+            },
+        }, (res) => {
+            let out = '';
+            res.on('data', c => out += c);
+            res.on('end', () => {
+                if (res.statusCode === 200) console.log(`💾 ${tag} OK :`, out);
+                else console.warn(`⚠️ ${tag} HTTP ${res.statusCode}:`, out);
+            });
+        });
+        req.on('error', err => console.warn(`⚠️ ${tag} erreur:`, err.message));
+        req.write(body);
+        req.end();
+    } catch (e) {
+        console.warn(`⚠️ ${tag} exception:`, e.message);
+    }
+}
 
 process.on('uncaughtException',  err => console.error('UNCAUGHT EXCEPTION:', err));
 process.on('unhandledRejection', err => console.error('UNHANDLED REJECTION:', err));
 
 const app    = express();
 const server = http.createServer(app);
+// Origines autorisées : localhost (dev) + domaine(s) de prod via env CORS_ORIGINS
+// ex : CORS_ORIGINS="https://monqpc.fwh.is,https://www.monqpc.com"
+const EXTRA_ORIGINS = (process.env.CORS_ORIGINS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+
 const io     = new Server(server, {
-    cors: { origin: ['http://localhost','http://127.0.0.1','http://localhost:8080','http://localhost:8888','http://localhost:3000'], methods: ['GET','POST'] },
+    cors: { origin: ['http://localhost','http://127.0.0.1','http://localhost:8080','http://localhost:8888','http://localhost:3000', ...EXTRA_ORIGINS], methods: ['GET','POST'] },
 });
 
 app.use(express.json());
+
+// Route de santé : health check Koyeb/Render + cible du ping UptimeRobot
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // ══════════════════════════════════════════════════════════════
 // SÉCURITÉ — Filtrage des fichiers servis en statique
@@ -502,7 +560,7 @@ function nextQuestion(roomCode) {
 }
 
 // ── Persister l'ELO + stats de partie en BDD via Apache/PHP ──
-function persistElo(room, winnerId, eloResult) {
+function persistElo(room, winnerId, eloResult, roomCode) {
     if (!eloResult) return;
 
     const players = Object.values(room.players);
@@ -525,37 +583,22 @@ function persistElo(room, winnerId, eloResult) {
 
     if (game_results.length === 0) return;
 
-    const payload = JSON.stringify({
-        server_key: SERVER_KEY,
+    // ── Enveloppe signée (HMAC) : vérifiable par save_elo.php ──
+    const envelope = signEnvelope({
+        type:        'duel',
+        room_code:    roomCode || '',
+        issued_at:    Date.now(),
         game_results: game_results,
     });
 
-    const url = new URL(PHP_BASE_URL + '/save_elo.php');
-    const options = {
-        hostname: url.hostname,
-        port: url.port || 80,
-        path: url.pathname,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload),
-        },
-    };
+    // 1) Tentative directe Node → PHP (fonctionne en local XAMPP ;
+    //    bloquée par InfinityFree en prod → mettre DIRECT_SAVE=0 pour la couper)
+    postToPhp('/save_elo.php', envelope, 'save_elo');
 
-    const req = http.request(options, (res) => {
-        let body = '';
-        res.on('data', c => body += c);
-        res.on('end', () => {
-            if (res.statusCode === 200) {
-                console.log(`💾 ELO + stats persistés :`, body);
-            } else {
-                console.warn(`⚠️ save_elo HTTP ${res.statusCode}:`, body);
-            }
-        });
-    });
-    req.on('error', err => console.warn('⚠️ save_elo erreur:', err.message));
-    req.write(payload);
-    req.end();
+    // 2) Relais navigateur : l'enveloppe est renvoyée à endGame qui l'émet aux
+    //    clients ; ils la livreront à save_elo.php (déduplication côté PHP,
+    //    donc aucune double-comptabilisation possible).
+    return envelope;
 }
 
 function endGame(roomCode, winnerId) {
@@ -581,7 +624,10 @@ function endGame(roomCode, winnerId) {
         console.log(`🏆 ${winner.name} +${winPts} ELO | ${loser.name} -${lossPts} ELO`);
 
         // Persister en BDD (ELO + stats de partie)
-        persistElo(room, winnerId, eloResult);
+        const saveEnvelope = persistElo(room, winnerId, eloResult, roomCode);
+        // Relais navigateur : les 2 clients livreront l'enveloppe signée à
+        // save_elo.php (indispensable en prod où Node→PHP est bloqué)
+        if (saveEnvelope) io.to(roomCode).emit('save_envelope', saveEnvelope);
     } else if (winner && loser) {
         // Partie amicale : on log mais on ne touche pas à l'ELO en BDD
         console.log(`🎉 [AMICAL] ${winner.name} bat ${loser.name} — pas de changement ELO`);
@@ -608,10 +654,155 @@ function endGame(roomCode, winnerId) {
 }
 
 // ══════════════════════════════════════════
+// MATCHMAKING CLASSÉ — file d'attente ELO
+// ══════════════════════════════════════════
+// File d'attente pour les parties CLASSÉES (matchmaking anonyme à la eFootball).
+// Les parties AMICALES n'utilisent PAS cette file : elles passent toujours par
+// create_room / join_room avec un code (lobby-1v1.php). C'est ce qui empêche
+// le "farm" d'ELO entre amis : en classé, on ne choisit pas son adversaire.
+//
+// Principe : chaque joueur en recherche est ajouté à `rankedQueue`. À chaque
+// nouvelle entrée + toutes les MM_TICK_MS, on tente d'apparier le joueur qui
+// attend depuis le plus longtemps avec l'adversaire dont l'ELO est le plus
+// proche, dans une tolérance qui s'élargit avec le temps d'attente (pour ne
+// jamais laisser quelqu'un seul indéfiniment).
+const rankedQueue = []; // { playerId, name, elo, socketId, joinedAt }
+
+const MM_BASE_TOLERANCE = 200;   // écart ELO toléré au départ
+const MM_WIDEN_PER_SEC  = 40;    // +40 d'écart toléré par seconde d'attente
+const MM_TICK_MS        = 2000;  // re-tentative d'appariement périodique
+
+function queueTolerance(entry) {
+    const waitedSec = (Date.now() - entry.joinedAt) / 1000;
+    return MM_BASE_TOLERANCE + waitedSec * MM_WIDEN_PER_SEC;
+}
+
+function removeFromQueueByPlayer(playerId) {
+    const i = rankedQueue.findIndex(e => e.playerId === playerId);
+    if (i !== -1) rankedQueue.splice(i, 1);
+}
+function removeFromQueueBySocket(socketId) {
+    const i = rankedQueue.findIndex(e => e.socketId === socketId);
+    if (i !== -1) rankedQueue.splice(i, 1);
+}
+
+// Construit une room "classée" prête à démarrer.
+// /!\ Même forme exacte que la room de create_room (sinon le game flow casse).
+function buildRankedRoom(code, a, b) {
+    const mkPlayer = (e, isHost) => ({
+        id: e.playerId, socketId: e.socketId,
+        name: e.name, elo: e.elo,
+        score: 0, correct: 0, wrong: 0, catResults: [],
+        ready: true, isHost,
+    });
+    return {
+        code, status: 'preparing_game',
+        isRanked: true,
+        players: { [a.playerId]: mkPlayer(a, true), [b.playerId]: mkPlayer(b, false) },
+        questions: [], currentQ: 0,
+        buzzedBy: null, answered: false, buzzOpen: false,
+        timerInterval: null, nextQuestionTimeout: null,
+        readTimeout: null, buzzTimeout: null,
+        deleteTimeout: null,
+        timerLeft: 0,
+        transitioning: false,
+        processingAnswer: false,
+        phase: 'redirecting',
+        opponentChanceFor: null,
+        alreadyOfferedChance: false,
+        transitionQueue: [],
+        countdownStarted: false,
+        gameReady: { [a.playerId]: false, [b.playerId]: false },
+        rematchAccepted: new Set(),
+    };
+}
+
+function createRankedMatch(a, b) {
+    let code;
+    do { code = generateCode(); } while (rooms.has(code));
+
+    const room = buildRankedRoom(code, a, b);
+    rooms.set(code, room);
+
+    // Les 2 sockets (côté lobby) rejoignent la room avant la redirection.
+    io.sockets.sockets.get(a.socketId)?.join(code);
+    io.sockets.sockets.get(b.socketId)?.join(code);
+
+    const payloadFor = (me, opp, host) => ({
+        code, isRanked: true, host,
+        you:      { id: me.playerId,  name: me.name,  elo: me.elo  },
+        opponent: { id: opp.playerId, name: opp.name, elo: opp.elo },
+    });
+
+    io.to(a.socketId).emit('match_found', payloadFor(a, b, true));
+    io.to(b.socketId).emit('match_found', payloadFor(b, a, false));
+
+    console.log(`⚔️  [CLASSÉ] Match "${code}" : ${a.name} (${a.elo}) vs ${b.name} (${b.elo})`);
+}
+
+function tryRankedMatch() {
+    // Purge des entrées dont le socket est déconnecté (joueur parti du lobby).
+    for (let i = rankedQueue.length - 1; i >= 0; i--) {
+        if (!io.sockets.sockets.get(rankedQueue[i].socketId)) rankedQueue.splice(i, 1);
+    }
+    if (rankedQueue.length < 2) return;
+
+    // Priorité à ceux qui attendent depuis le plus longtemps.
+    rankedQueue.sort((x, y) => x.joinedAt - y.joinedAt);
+
+    for (let i = 0; i < rankedQueue.length; i++) {
+        const a = rankedQueue[i];
+        let bestIdx = -1, bestDiff = Infinity;
+        for (let j = 0; j < rankedQueue.length; j++) {
+            if (j === i) continue;
+            const b    = rankedQueue[j];
+            const diff = Math.abs(a.elo - b.elo);
+            const tol  = Math.max(queueTolerance(a), queueTolerance(b));
+            if (diff <= tol && diff < bestDiff) { bestDiff = diff; bestIdx = j; }
+        }
+        if (bestIdx !== -1) {
+            const a2 = rankedQueue[i], b2 = rankedQueue[bestIdx];
+            // Retrait des 2 entrées (indice le + grand d'abord pour ne pas décaler).
+            const hi = Math.max(i, bestIdx), lo = Math.min(i, bestIdx);
+            rankedQueue.splice(hi, 1);
+            rankedQueue.splice(lo, 1);
+            createRankedMatch(a2, b2);
+            return tryRankedMatch(); // relance pour apparier d'éventuelles autres paires
+        }
+    }
+}
+
+setInterval(tryRankedMatch, MM_TICK_MS);
+
+// ══════════════════════════════════════════
 // SOCKET.IO EVENTS
 // ══════════════════════════════════════════
 io.on('connection', (socket) => {
     console.log(`🔌 [connect] ${socket.id}`);
+
+    // ── MATCHMAKING CLASSÉ : rejoindre la file d'attente ──
+    socket.on('find_ranked_match', ({ playerId, name, elo }) => {
+        if (!playerId) { socket.emit('error', { message: 'playerId manquant' }); return; }
+        removeFromQueueByPlayer(playerId); // anti-doublon (re-clic / reconnexion)
+        const entry = {
+            playerId,
+            name: (name || 'Joueur').trim().slice(0, 20),
+            elo:  parseInt(elo) || ELO.START,
+            socketId: socket.id,
+            joinedAt: Date.now(),
+        };
+        rankedQueue.push(entry);
+        socket.emit('ranked_queued', { inQueue: rankedQueue.length });
+        console.log(`🎯 [CLASSÉ] ${entry.name} (${entry.elo}) en file (${rankedQueue.length} en attente)`);
+        tryRankedMatch();
+    });
+
+    // ── MATCHMAKING CLASSÉ : quitter la file ──
+    socket.on('cancel_ranked', ({ playerId }) => {
+        if (playerId) removeFromQueueByPlayer(playerId);
+        else          removeFromQueueBySocket(socket.id);
+        socket.emit('ranked_cancelled');
+    });
 
     // ── CRÉER ──
     socket.on('create_room', ({ playerId, name, elo, isRanked }) => {
@@ -971,6 +1162,7 @@ io.on('connection', (socket) => {
 
     // ── DÉCONNEXION ──
     socket.on('disconnect', () => {
+        removeFromQueueBySocket(socket.id); // sort de la file matchmaking si présent
         for (const [code, room] of rooms) {
             const playerId = getPlayerIdBySocket(room, socket.id);
             if (!playerId) continue;

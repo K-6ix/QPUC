@@ -128,7 +128,7 @@
 
     // ─── Socket ─────────────────────────────────────────────────────
     // Le serveur Node tourne sur le port 3000 (cohérent avec le 1v1)
-    const SERVER_URL = 'http://localhost:3000';
+    const SERVER_URL = (window.QPC_CONFIG && window.QPC_CONFIG.SERVER_URL) || 'http://localhost:3000';
     const socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
 
     socket.on('connect', () => {

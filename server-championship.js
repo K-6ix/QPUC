@@ -11,9 +11,20 @@
 
 module.exports = function setupChampionship(io, QUESTIONS_RAW) {
 
-    const http = require('http');
+    const http   = require('http');
+    const https  = require('https');
+    const crypto = require('crypto');
     const PHP_BASE_URL = process.env.PHP_URL || 'http://localhost/qvpcPhpV1';
-    const SERVER_KEY   = 'qpc_server_2026';
+    // Même clé que server.js (env SERVER_KEY en prod, cf. qpc_secret.php côté PHP)
+    const SERVER_KEY   = process.env.SERVER_KEY || 'qpc_server_2026';
+    const DIRECT_SAVE  = process.env.DIRECT_SAVE !== '0';
+
+    // Enveloppe signée HMAC — même mécanisme que server.js / qpc_hmac.php
+    function signEnvelope(obj) {
+        const payload   = JSON.stringify(obj);
+        const signature = crypto.createHmac('sha256', SERVER_KEY).update(payload).digest('hex');
+        return { payload, signature };
+    }
 
     // Normalisation des questions du projet QPC vers le format interne champion :
     // - Le projet : { question, options, answer (string), catLabel, ... }
@@ -1401,43 +1412,56 @@ function saveChampionshipResults(room, suddenDeath) {
                  + (room.m2?.questionIndex || 0)
                  + (room.m3?.questionIndex || 0);
 
-    const payload = JSON.stringify({
-        server_key:      SERVER_KEY,
+    const envelope = signEnvelope({
+        type:            'championship',
         room_code:       room.code,
+        issued_at:       Date.now(),
         sudden_death:    suddenDeath || false,
         total_questions: totalQ,
         ranking:         ranking,
         bets:            [] // TODO : collecter les paris M2/M3 pour les sauvegarder
     });
 
-    const url = new URL(PHP_BASE_URL + '/championship/save_championship.php');
-    const options = {
-        hostname: url.hostname,
-        port:     url.port || 80,
-        path:     url.pathname,
-        method:   'POST',
-        headers: {
-            'Content-Type':   'application/json',
-            'Content-Length':  Buffer.byteLength(payload),
-        },
-    };
-
     console.log(`[CHAMP_SAVE] Sauvegarde résultats room ${room.code}...`);
 
-    const req = http.request(options, (res) => {
-        let body = '';
-        res.on('data', c => body += c);
-        res.on('end', () => {
-            if (res.statusCode === 200) {
-                console.log(`💾 [CHAMP_SAVE] OK :`, body);
-            } else {
-                console.warn(`⚠️ [CHAMP_SAVE] HTTP ${res.statusCode}:`, body);
-            }
-        });
-    });
-    req.on('error', err => console.warn('⚠️ [CHAMP_SAVE] erreur:', err.message));
-    req.write(payload);
-    req.end();
+    // 1) Tentative directe Node → PHP (local ; coupée en prod via DIRECT_SAVE=0
+    //    car InfinityFree bloque les requêtes serveur→serveur)
+    if (DIRECT_SAVE) {
+        try {
+            const url  = new URL(PHP_BASE_URL + '/championship/save_championship.php');
+            const body = JSON.stringify(envelope);
+            const mod  = url.protocol === 'https:' ? https : http;
+            const req  = mod.request({
+                hostname: url.hostname,
+                port:     url.port || (url.protocol === 'https:' ? 443 : 80),
+                path:     url.pathname,
+                method:   'POST',
+                headers: {
+                    'Content-Type':   'application/json',
+                    'Content-Length':  Buffer.byteLength(body),
+                },
+            }, (res) => {
+                let out = '';
+                res.on('data', c => out += c);
+                res.on('end', () => {
+                    if (res.statusCode === 200) {
+                        console.log(`💾 [CHAMP_SAVE] OK :`, out);
+                    } else {
+                        console.warn(`⚠️ [CHAMP_SAVE] HTTP ${res.statusCode}:`, out);
+                    }
+                });
+            });
+            req.on('error', err => console.warn('⚠️ [CHAMP_SAVE] erreur:', err.message));
+            req.write(body);
+            req.end();
+        } catch (e) {
+            console.warn('⚠️ [CHAMP_SAVE] exception:', e.message);
+        }
+    }
+
+    // 2) Relais navigateur : les 4 clients reçoivent l'enveloppe signée et la
+    //    livrent à save_championship.php (déduplication côté PHP → 1 seul traitement)
+    io.to(room.code).emit('champ_save_envelope', envelope);
 }
 
 function endM3(roomCode, reason) {
@@ -1552,10 +1576,161 @@ function openSDBuzz(roomCode) {
 }
 
 // ============================================================================
+//  MATCHMAKING CLASSÉ — file d'attente à 4 (ELO en jeu)
+// ============================================================================
+//  Même principe que le 1v1, version tournoi : on rassemble 4 joueurs de
+//  niveau proche puis on lance EXACTEMENT le championnat existant (startM1…).
+//  Les parties AMICALES continuent de passer par champ_create_room /
+//  champ_join_room avec un code (championship/lobby.php) — on ne touche à rien.
+const champRankedQueue = []; // { playerId, name, elo, socketId, joinedAt }
+
+const CHAMP_MM_BASE_TOL      = 300;   // écart ELO toléré au départ (4 joueurs = plus large)
+const CHAMP_MM_WIDEN_PER_SEC = 50;    // +50 par seconde d'attente
+const CHAMP_MM_TICK_MS       = 2000;  // re-tentative périodique
+
+function champQueueTol(entry) {
+    return CHAMP_MM_BASE_TOL + ((Date.now() - entry.joinedAt) / 1000) * CHAMP_MM_WIDEN_PER_SEC;
+}
+function champRemoveFromQueueByPlayer(playerId) {
+    const i = champRankedQueue.findIndex(e => e.playerId === playerId);
+    if (i !== -1) champRankedQueue.splice(i, 1);
+}
+function champRemoveFromQueueBySocket(socketId) {
+    const i = champRankedQueue.findIndex(e => e.socketId === socketId);
+    if (i !== -1) champRankedQueue.splice(i, 1);
+}
+
+// Séquence de lancement (countdown → redirection vers game.php → attente rejoin).
+// Extraite de champ_toggle_ready pour être réutilisée par le matchmaking.
+// Les 4 joueurs doivent déjà être dans room.players.
+function launchChampStartSequence(roomCode) {
+    const room = rooms[roomCode];
+    if (!room) return;
+    room.status = 'starting';
+    room.pendingRejoin = new Set();
+    io.to(roomCode).emit('champ_match_starting', { in: 3 });
+    let count = 3;
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            io.to(roomCode).emit('champ_countdown', { count });
+        } else {
+            clearInterval(interval);
+            room.status = 'awaiting_rejoin';
+            io.to(roomCode).emit('champ_redirect_to_game');
+            if (room.rejoinTimer) clearTimeout(room.rejoinTimer);
+            room.rejoinTimer = setTimeout(() => {
+                console.log(`[CHAMP] ${roomCode} : timeout rejoin, on lance M1 quand même`);
+                if (room.status === 'awaiting_rejoin') {
+                    const connected = Object.values(room.players).filter(p => !p.disconnected);
+                    if (connected.length === 0) {
+                        console.log(`[CLEANUP] ${roomCode} : rejoinTimer fired mais 0 joueur connecté, suppression`);
+                        clearAllTimers(room);
+                        delete rooms[roomCode];
+                        return;
+                    }
+                    room.status = 'game_countdown';
+                    io.to(roomCode).emit('champ_match_starting', { in: 3 });
+                    let ct = 3;
+                    const ctInterval = setInterval(() => {
+                        ct--;
+                        if (ct > 0) io.to(roomCode).emit('champ_countdown', { count: ct });
+                        else { clearInterval(ctInterval); startM1(roomCode); }
+                    }, 1000);
+                }
+            }, 8000);
+        }
+    }, 1000);
+}
+
+// Crée une room classée à partir de 4 entrées de file, puis lance le tournoi.
+function createRankedChampMatch(entries) {
+    let code;
+    do { code = generateCode(); } while (rooms[code]);
+
+    const players = {};
+    entries.forEach(e => {
+        players[e.playerId] = {
+            socketId: e.socketId, name: e.name,
+            ready: true, alive: true, score: 0, m3Score: 0, joinedAt: Date.now()
+        };
+    });
+
+    rooms[code] = {
+        code, status: 'starting', hostId: entries[0].playerId, createdAt: Date.now(),
+        isRanked: true, players
+    };
+
+    // Les 4 sockets (côté lobby) rejoignent la room avant la redirection.
+    entries.forEach(e => {
+        const s = io.sockets.sockets.get(e.socketId);
+        if (s) { s.join(code); s.data = { playerId: e.playerId, roomCode: code }; }
+    });
+
+    io.to(code).emit('champ_match_found', {
+        code,
+        players: entries.map(e => ({ id: e.playerId, name: e.name, elo: e.elo }))
+    });
+    console.log(`[CHAMP CLASSÉ] Match ${code} : ${entries.map(e => `${e.name}(${e.elo})`).join(', ')}`);
+
+    // Laisse jouer la révélation des 4 joueurs, puis lance la séquence de départ.
+    setTimeout(() => launchChampStartSequence(code), 2800);
+}
+
+function tryChampMatch() {
+    // Purge des entrées dont le socket est déconnecté.
+    for (let i = champRankedQueue.length - 1; i >= 0; i--) {
+        if (!io.sockets.sockets.get(champRankedQueue[i].socketId)) champRankedQueue.splice(i, 1);
+    }
+    if (champRankedQueue.length < CONFIG.MAX_PLAYERS) return;
+
+    // Fenêtre glissante de 4 sur la file triée par ELO : on prend le 1er groupe
+    // dont l'écart max ≤ tolérance (qui s'élargit avec l'attente).
+    const byElo = [...champRankedQueue].sort((a, b) => a.elo - b.elo);
+    for (let i = 0; i + CONFIG.MAX_PLAYERS <= byElo.length; i++) {
+        const win    = byElo.slice(i, i + CONFIG.MAX_PLAYERS);
+        const spread = win[win.length - 1].elo - win[0].elo;
+        const tol    = Math.max(...win.map(champQueueTol));
+        if (spread <= tol) {
+            win.forEach(e => champRemoveFromQueueByPlayer(e.playerId));
+            createRankedChampMatch(win);
+            return tryChampMatch(); // relance pour d'éventuels autres groupes
+        }
+    }
+}
+
+setInterval(tryChampMatch, CHAMP_MM_TICK_MS);
+
+// ============================================================================
 //  SOCKET HANDLERS
 // ============================================================================
 io.on('connection', (socket) => {
     console.log(`[CONNECT] ${socket.id}`);
+
+    // ── MATCHMAKING CLASSÉ : rejoindre la file (tournoi à 4) ──
+    socket.on('champ_find_ranked_match', ({ playerId, name, elo }) => {
+        if (!playerId) { socket.emit('champ_error', { message: 'playerId manquant' }); return; }
+        champRemoveFromQueueByPlayer(playerId); // anti-doublon
+        const entry = {
+            playerId,
+            name: (name && name.trim()) ? name.trim().slice(0, 20) : 'Joueur',
+            elo:  parseInt(elo) || 1200,
+            socketId: socket.id,
+            joinedAt: Date.now(),
+        };
+        champRankedQueue.push(entry);
+        socket.data = { playerId, roomCode: null }; // roomCode assigné à l'appariement
+        socket.emit('champ_ranked_queued', { inQueue: champRankedQueue.length, needed: CONFIG.MAX_PLAYERS });
+        console.log(`[CHAMP CLASSÉ] ${entry.name} (${entry.elo}) en file (${champRankedQueue.length}/${CONFIG.MAX_PLAYERS})`);
+        tryChampMatch();
+    });
+
+    // ── MATCHMAKING CLASSÉ : quitter la file ──
+    socket.on('champ_cancel_ranked', ({ playerId }) => {
+        if (playerId) champRemoveFromQueueByPlayer(playerId);
+        else          champRemoveFromQueueBySocket(socket.id);
+        socket.emit('champ_ranked_cancelled');
+    });
 
     // ============================================================
     //  [DEV] Mode test rapide M3 : lance M3 directement avec 2 joueurs
@@ -1717,48 +1892,7 @@ io.on('connection', (socket) => {
         broadcastRoom(roomCode);
         const playerList = Object.values(room.players);
         if (playerList.length === CONFIG.MAX_PLAYERS && playerList.every(p => p.ready)) {
-            room.status = 'starting';
-            // [CHAMP INTEGRATION] On marque la room comme "en attente de rejoin"
-            // pour que startM1 ne soit appelé qu'une fois que les 4 sont sur game.php
-            room.pendingRejoin = new Set();
-            io.to(roomCode).emit('champ_match_starting', { in: 3 });
-            let count = 3;
-            const interval = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    io.to(roomCode).emit('champ_countdown', { count });
-                } else {
-                    clearInterval(interval);
-                    // Plutôt que startM1 direct, on émet "match_ready_to_start"
-                    // et on attend les rejoin. Si après 8s personne n'a rejoint, on lance quand même
-                    // (cas où les clients sont déjà en game.php)
-                    room.status = 'awaiting_rejoin';
-                    io.to(roomCode).emit('champ_redirect_to_game');
-                    if (room.rejoinTimer) clearTimeout(room.rejoinTimer);
-                    room.rejoinTimer = setTimeout(() => {
-                        console.log(`[CHAMP] ${roomCode} : timeout rejoin, on lance M1 quand même`);
-                        if (room.status === 'awaiting_rejoin') {
-                            // Sécurité : si personne n'a rejoint (tous encore déconnectés),
-                            // on cleanup la room au lieu de lancer M1 dans le vide.
-                            const connected = Object.values(room.players).filter(p => !p.disconnected);
-                            if (connected.length === 0) {
-                                console.log(`[CLEANUP] ${roomCode} : rejoinTimer fired mais 0 joueur connecté, suppression`);
-                                clearAllTimers(room);
-                                delete rooms[roomCode];
-                                return;
-                            }
-                            room.status = 'game_countdown';
-                            io.to(roomCode).emit('champ_match_starting', { in: 3 });
-                            let ct = 3;
-                            const ctInterval = setInterval(() => {
-                                ct--;
-                                if (ct > 0) io.to(roomCode).emit('champ_countdown', { count: ct });
-                                else { clearInterval(ctInterval); startM1(roomCode); }
-                            }, 1000);
-                        }
-                    }, 8000);
-                }
-            }, 1000);
+            launchChampStartSequence(roomCode);
         }
     });
 
@@ -1838,6 +1972,7 @@ io.on('connection', (socket) => {
     socket.on('champ_leave_room', () => handleLeave(socket, 'leave'));
     socket.on('disconnect',       () => {
         console.log(`[DISCONNECT] ${socket.id}`);
+        champRemoveFromQueueBySocket(socket.id); // sort de la file matchmaking si présent
         handleLeave(socket, 'disconnect');
     });
 });

@@ -84,6 +84,7 @@
         m1QCounter:  document.getElementById('m1-q-counter'),
         m1Players:   document.getElementById('m1-players'),
         m1Category:  document.getElementById('m1-category'),
+        m1Diff:      document.getElementById('m1-diff'),
         m1QText:     document.getElementById('m1-question-text'),
         m1Options:   document.getElementById('m1-options'),
         m1TimerFill: document.getElementById('m1-timer-fill'),
@@ -92,6 +93,7 @@
         // Tiebreak
         tbRound:     document.getElementById('tb-round'),
         tbCategory:  document.getElementById('tb-category'),
+        tbDiff:      document.getElementById('tb-diff'),
         tbQText:     document.getElementById('tb-question-text'),
         tbOptions:   document.getElementById('tb-options'),
         tbTimerFill: document.getElementById('tb-timer-fill'),
@@ -123,6 +125,7 @@
         m3BetBanner:    document.getElementById('m3-bet-banner'),
         m3BetBannerText:document.getElementById('m3-bet-banner-text'),
         m3Category:     document.getElementById('m3-category'),
+        m3Diff:         document.getElementById('m3-diff'),
         m3TimerFill:    document.getElementById('m3-timer-fill'),
         m3TimerText:    document.getElementById('m3-timer-text'),
         m3QText:        document.getElementById('m3-question-text'),
@@ -164,6 +167,22 @@
         }
         console.warn('[CHAMP-GAME]', msg);
     }
+    // ── Relais de sauvegarde signée ───────────────────────────
+    // Le serveur envoie une enveloppe HMAC que le navigateur livre à
+    // save_championship.php (Node→PHP direct est bloqué en prod).
+    // Dédupliquée côté PHP : les 4 joueurs peuvent la livrer sans risque.
+    function deliverSaveEnvelope(envelope) {
+        if (!envelope || !envelope.payload || !envelope.signature) return;
+        const post = () => fetch('save_championship.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: envelope.payload, signature: envelope.signature }),
+            credentials: 'same-origin',
+        });
+        post().then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+              .catch(() => setTimeout(() => post().catch(() => {}), 2000)); // 1 retry
+    }
+
     function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
@@ -398,7 +417,7 @@
     // -------------------------------------------------------------------
     //  SOCKET
     // -------------------------------------------------------------------
-    const SERVER_URL = 'http://localhost:3000';
+    const SERVER_URL = (window.QPC_CONFIG && window.QPC_CONFIG.SERVER_URL) || 'http://localhost:3000';
     const socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
 
     socket.on('connect', () => console.log('[SOCKET] connected', socket.id));
@@ -454,11 +473,19 @@
         roomPlayers = roomPlayers.map(p => ({ ...p, score: 0, alive: true }));
     });
 
+    // Badge difficulté (adaptatif) : affiché si le serveur envoie data.difficulty
+    function setDiffBadge(el, difficulty) {
+        if (!el) return;
+        el.textContent = difficulty || '';
+        el.className = 'champ-diff-badge' + (difficulty ? ' ' + difficulty : '');
+    }
+
     socket.on('m1_question', (data) => {
         m1MyAnswer = null;
         showScreen('m1');
         els.m1QCounter.textContent = `Q${data.index} / ${data.total}`;
         els.m1Category.textContent = data.category.replace(/_/g, ' ');
+        setDiffBadge(els.m1Diff, data.difficulty);
         els.m1QText.textContent = data.question;
         renderM1Options(data.options);
         renderM1Players();
@@ -526,6 +553,7 @@
         const isContender = data.contenderIds.includes(PLAYER_ID);
         els.tbRound.textContent = `Question ${data.round}`;
         els.tbCategory.textContent = data.category.replace(/_/g, ' ');
+        setDiffBadge(els.tbDiff, data.difficulty);
         els.tbQText.textContent = data.question;
         renderTbOptions(data.options);
         if (!isContender) {
@@ -765,6 +793,7 @@
         showScreen('m3duel');
         els.m3QCounter.textContent = `Q${data.index} / ${data.total}`;
         els.m3Category.textContent = data.category.replace(/_/g, ' ');
+        setDiffBadge(els.m3Diff, data.difficulty);
         els.m3QText.textContent = data.question;
         renderM2Players();
 
@@ -904,6 +933,7 @@
         const isContender = data.contenderIds.includes(PLAYER_ID);
         els.tbRound.textContent = `Question ${data.round}`;
         els.tbCategory.textContent = data.category.replace(/_/g, ' ');
+        setDiffBadge(els.tbDiff, data.difficulty);
         els.tbQText.textContent = data.question;
         els.tbOptions.innerHTML = '';
         els.tbStatus.textContent = isContender ? 'Lis la question…' : 'Tu observes le barrage.';
@@ -1062,6 +1092,7 @@
         showScreen('m3duel');
         els.m3QCounter.textContent = `Q${data.index} / ${data.total}`;
         els.m3Category.textContent = data.category.replace(/_/g, ' ');
+        setDiffBadge(els.m3Diff, data.difficulty);
         els.m3QText.textContent = data.question;
         renderM3DuelPlayers();
         // Options cachees
@@ -1246,34 +1277,62 @@
         genericTimer(data.deadline, data.time, els.m3SDTimerFill, els.m3SDTimerText);
     });
 
+    socket.on('champ_save_envelope', deliverSaveEnvelope);
+
     socket.on('m3_finished', ({ winnerId, winnerName, scores, message, ranking, duration, totalQuestions, suddenDeath }) => {
         clearTimer();
         setSpectator(false);
 
-        // ── Identité du gagnant ─────────────────────────
+        // ── Verdict personnalisé selon TA place ─────────
+        const mine   = Array.isArray(ranking) ? ranking.find(p => p.id === PLAYER_ID) : null;
+        const myRank = mine ? mine.rank : 0;
+        const VERDICTS = { 1: 'CHAMPION', 2: 'FINALISTE', 3: '3ᵉ PLACE', 4: '4ᵉ PLACE' };
+
+        const finalTitleEl  = document.getElementById('final-title');
         const finalWinnerEl = document.getElementById('final-winner-name');
-        const finalMsgEl = document.getElementById('final-message');
-        if (finalWinnerEl) finalWinnerEl.textContent = winnerName || '?';
+        const finalMsgEl    = document.getElementById('final-message');
+        if (finalTitleEl) {
+            finalTitleEl.textContent = VERDICTS[myRank] || 'Tournoi terminé';
+            finalTitleEl.classList.toggle('is-low', myRank >= 3);
+        }
+        if (finalWinnerEl) finalWinnerEl.textContent =
+            (myRank === 1 ? winnerName : `Champion : ${winnerName || '?'}`);
         if (finalMsgEl) finalMsgEl.textContent = message || '';
 
-        // ── Podium 1-4 avec ELO ───────────────────────────
+        // ── Chip ELO perso (classé uniquement — deltas nuls en amical) ──
+        const chipEl = document.getElementById('final-mychip');
+        if (chipEl) {
+            if (mine && !window.QPC_FRIENDLY) {
+                const s = mine.elo_delta >= 0 ? '+' : '';
+                chipEl.textContent = `${s}${mine.elo_delta} ELO`;
+                chipEl.className = 'final-mychip ' + (mine.elo_delta > 0 ? 'up' : (mine.elo_delta < 0 ? 'down' : 'flat'));
+                chipEl.style.display = '';
+            } else {
+                chipEl.style.display = 'none';
+            }
+        }
+
+        // ── CLASSEMENT DE LA PARTIE (lignes animées) ─────
         const podium = document.getElementById('final-podium');
-        const medals = { 1: '🥇', 2: '🥈', 3: '🥉', 4: '4️⃣' };
+        const medals = { 1: '🥇', 2: '🥈', 3: '🥉', 4: '4' };
+        const SUBS   = { 1: 'Champion du tournoi', 2: 'Finaliste', 3: 'Éliminé en manche 2', 4: 'Éliminé en manche 1' };
         if (podium && Array.isArray(ranking) && ranking.length > 0) {
             let html = '';
-            ranking.forEach(p => {
-                const isMe = (p.id === PLAYER_ID);
+            ranking.forEach((p, i) => {
+                const isMe     = (p.id === PLAYER_ID);
                 const eloClass = p.elo_delta > 0 ? 'positive' : (p.elo_delta < 0 ? 'negative' : 'neutral');
                 const eloSign  = p.elo_delta > 0 ? '+' : '';
-                const eloArrow = p.elo_delta > 0 ? ' ↑' : (p.elo_delta < 0 ? ' ↓' : ' →');
+                const showElo  = !window.QPC_FRIENDLY;
+                const showPts  = (p.rank <= 2 && typeof p.score_m3 === 'number');
                 html += `
-                    <div class="podium-row rank-${p.rank} ${isMe ? 'is-me' : ''}">
-                        <span class="podium-medal">${medals[p.rank] || p.rank}</span>
-                        <span class="podium-name">
-                            ${escapeHtml(p.name)}
-                            ${isMe ? '<span class="me-tag">(toi)</span>' : ''}
+                    <div class="crow rank-${p.rank} ${isMe ? 'is-me' : ''}" style="animation-delay:${i * 140}ms">
+                        <span class="crow-medal">${medals[p.rank] || p.rank}</span>
+                        <span class="crow-id">
+                            <span class="crow-name">${escapeHtml(p.name)}${isMe ? '<span class="crow-metag">TOI</span>' : ''}</span>
+                            <span class="crow-sub">${SUBS[p.rank] || ''}</span>
                         </span>
-                        <span class="podium-elo ${eloClass}">${eloSign}${p.elo_delta} ELO${eloArrow}</span>
+                        <span class="crow-pts">${showPts ? p.score_m3 + ' pts' : ''}</span>
+                        <span class="crow-elo ${eloClass}">${showElo ? (eloSign + p.elo_delta + ' ELO') : ''}</span>
                     </div>`;
             });
             podium.innerHTML = html;

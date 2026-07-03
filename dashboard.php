@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
 
 // ── Vérification connexion ──────────────────────────────────
@@ -1410,6 +1410,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
             <div class="profile-email" id="show-email"><?= htmlspecialchars($user['email']) ?></div>
             <hr class="profile-divider">
             <form action="update_profile.php" method="POST" enctype="multipart/form-data" id="profile-form">
+              <?= csrf_field() ?>
               <input type="file" name="profile_pic" id="file-input-hidden" style="display:none">
               <div class="form-field">
                 <label class="form-label">Nom d'utilisateur</label>
@@ -1472,6 +1473,8 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
             <div class="leader-pts"><?= number_format($best_score) ?></div>
           </div>
           <?php endif; ?>
+
+          <a href="classement.php" style="display:block;text-align:center;padding:14px 10px 6px;font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--g400);text-decoration:none;font-weight:600;">Voir le classement complet →</a>
         </div>
 
       </div>

@@ -1,6 +1,16 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php"; // logError() défini ici
+
+// ============================================================
+// Protection CSRF
+// ============================================================
+if (!csrf_verify()) {
+    logError("login.php - CSRF token invalide");
+    $_SESSION['error'] = "Session expirée, veuillez réessayer.";
+    header("Location: connexion.php");
+    exit;
+}
 
 // ============================================================
 // Vérification des champs

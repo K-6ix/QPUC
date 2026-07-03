@@ -3,7 +3,7 @@
 //  QPC - Championship Game (M1 + M2 + M3)
 //  Auth obligatoire SAUF en mode amical (?friendly=1 → guest play autorisé)
 // ============================================================================
-session_start();
+require_once __DIR__ . '/../csrf.php';
 require __DIR__ . "/../db.php";
 
 // ── Mode amical (passé via &friendly=1 depuis lobby.php) ────
@@ -142,6 +142,7 @@ $room_code = strtoupper(substr($room_code, 0, 10));
     <div class="m1-question-area">
         <div class="m1-question-meta">
             <span class="m1-category" id="m1-category">—</span>
+            <span class="champ-diff-badge" id="m1-diff"></span>
             <div class="m1-timer-bar"><div class="m1-timer-fill" id="m1-timer-fill"></div></div>
             <span class="m1-timer-text" id="m1-timer-text">15</span>
         </div>
@@ -164,6 +165,7 @@ $room_code = strtoupper(substr($room_code, 0, 10));
     <div class="m1-question-area">
         <div class="m1-question-meta">
             <span class="m1-category" id="tb-category">—</span>
+            <span class="champ-diff-badge" id="tb-diff"></span>
             <div class="m1-timer-bar"><div class="m1-timer-fill" id="tb-timer-fill"></div></div>
             <span class="m1-timer-text" id="tb-timer-text">12</span>
         </div>
@@ -275,6 +277,7 @@ $room_code = strtoupper(substr($room_code, 0, 10));
     <div class="m1-question-area">
         <div class="m1-question-meta">
             <span class="m1-category" id="m3-category">—</span>
+            <span class="champ-diff-badge" id="m3-diff"></span>
             <div class="m1-timer-bar"><div class="m1-timer-fill" id="m3-timer-fill"></div></div>
             <span class="m1-timer-text" id="m3-timer-text">12</span>
         </div>
@@ -325,7 +328,8 @@ $room_code = strtoupper(substr($room_code, 0, 10));
 
     <div class="final-content">
         <div class="final-trophy">🏆</div>
-        <h2 class="final-title">Champion</h2>
+        <h2 class="final-title" id="final-title">Champion</h2>
+        <div class="final-mychip" id="final-mychip" style="display:none">—</div>
         <div class="final-winner-name" id="final-winner-name">—</div>
         <p class="final-message" id="final-message"></p>
 
@@ -352,6 +356,7 @@ $room_code = strtoupper(substr($room_code, 0, 10));
 
         <div class="final-actions">
             <button id="btn-back-lobby" class="btn btn-secondary">Nouvelle partie</button>
+            <a href="../classement.php" class="btn btn-secondary" style="text-decoration:none;">🏆 Classement</a>
             <button id="btn-back-dashboard" class="btn btn-primary">Dashboard</button>
         </div>
     </div>
@@ -429,6 +434,7 @@ window.QPC_USER = null;
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="../qpc-config.js"></script>
 <script src="audio.js?v=<?= filemtime(__DIR__.'/audio.js') ?>"></script>
 <script src="game.js?v=<?= filemtime(__DIR__.'/game.js') ?>"></script>
 

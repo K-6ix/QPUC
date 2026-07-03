@@ -1,4 +1,4 @@
-<?php session_start(); ?>
+<?php require_once __DIR__ . '/csrf.php'; ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1584,7 +1584,7 @@ html, body {
       <li><a href="index.php">Home</a></li>
       <li><a href="rules.php">Rules</a></li>
       <li><a href="game.php" class="btn-play">▶ Play</a></li>
-      <li><a href="index.php#classement">Classement</a></li>
+      <li><a href="classement.php">Classement</a></li>
       <li><a href="aboutus.php">About Us</a></li>
     </ul>
   </nav>
@@ -1639,7 +1639,7 @@ html, body {
         <span>Rules</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
-      <a href="index.php#classement" data-close class="drawer-link">
+      <a href="classement.php" data-close class="drawer-link">
         <span>Classement</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
@@ -1792,10 +1792,10 @@ html, body {
         <span class="rule-visual-icon"><svg class="rule-svg" viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="100" cy="100" r="80"/><line x1="100" y1="20" x2="100" y2="180"/><line x1="20" y1="100" x2="180" y2="100"/><line x1="44" y1="44" x2="156" y2="156"/><line x1="156" y1="44" x2="44" y2="156"/><circle cx="100" cy="100" r="18"/><circle cx="100" cy="50" r="6"/><circle cx="150" cy="100" r="6"/><circle cx="100" cy="150" r="6"/><circle cx="50" cy="100" r="6"/><circle cx="135" cy="65" r="5"/><circle cx="135" cy="135" r="5"/><circle cx="65" cy="135" r="5"/><circle cx="65" cy="65" r="5"/></svg></span>
       </div>
       <div class="rule-text">
-        <span class="rule-overline">Huit thèmes · 160 questions</span>
+        <span class="rule-overline">Huit thèmes · 499 questions</span>
         <h2 class="rule-title">Les <em>catégories</em></h2>
         <p class="rule-desc">
-          Les questions sont réparties en huit grands thèmes (20 questions chacun). La culture générale se gagne en largeur autant qu'en profondeur — impossible d'esquiver tous ses points faibles.
+          Les questions sont réparties en huit grands thèmes (une soixantaine chacun). La culture générale se gagne en largeur autant qu'en profondeur — impossible d'esquiver tous ses points faibles.
         </p>
         <ul class="rule-details checklist-anim">
           <li class="check-item"><span class="check-box"><svg class="check-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,12 10,18 20,6"/></svg></span><span class="check-text">Sciences · Informatique · Histoire · Géographie</span></li>
@@ -1837,7 +1837,7 @@ html, body {
 <section class="stats-section section-reveal" id="classement">
   <div class="stats-grid">
     <div class="stat-item">
-      <div class="stat-number" data-count="160">0</div>
+      <div class="stat-number" data-count="499">0</div>
       <div class="stat-label">Questions</div>
     </div>
     <div class="stat-item">

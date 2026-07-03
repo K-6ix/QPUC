@@ -1,16 +1,15 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
 
-// ── Mode amical (passé via ?friendly=1 depuis game.php) ─────
-// Le mode amical NE REQUIERT PAS de compte (guest play autorisé)
-$is_friendly = isset($_GET['friendly']) && $_GET['friendly'] === '1';
-
-// ── Auth conditionnelle : obligatoire SAUF en mode amical ──
-if (!$is_friendly && !isset($_SESSION['user_id'])) {
-    header("Location: connexion.php");
-    exit;
-}
+// ════════════════════════════════════════════════════════════
+// LOBBY AMICAL — duel par code, ELO figé
+// Le mode CLASSÉ passe désormais par lobby-ranked.php (matchmaking
+// anonyme). Ici on ne choisit pas son adversaire via l'ELO : c'est
+// du jeu entre amis (code de room), donc l'ELO ne bouge JAMAIS et le
+// jeu en invité est autorisé (aucune auth requise).
+// ════════════════════════════════════════════════════════════
+$is_friendly = true;
 
 // ── Defaults guest ──────────────────────────────────────────
 $user_id     = null;
@@ -243,6 +242,7 @@ try {
 <?php endif; ?>
 </script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="qpc-config.js"></script>
 <script src="lobby-1v1.js"></script>
 
 </body>

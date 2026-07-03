@@ -1,6 +1,14 @@
 <?php
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
+
+// ── Protection CSRF ─────────────────────────────────────────
+if (!csrf_verify()) {
+    logError("signup.php - CSRF token invalide");
+    $_SESSION['error'] = "Session expirée, veuillez réessayer.";
+    header("Location: connexion.php");
+    exit;
+}
 
 $username = trim($_POST['username'] ?? '');
 $email    = trim($_POST['email']    ?? '');

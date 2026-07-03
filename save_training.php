@@ -22,7 +22,7 @@
 //
 // Réponse : { ok: true, session_id: int } | { ok: false, error: "..." }
 // ════════════════════════════════════════════════════════════════
-session_start();
+require_once __DIR__ . '/csrf.php';
 require "db.php";
 
 header("Content-Type: application/json; charset=utf-8");
@@ -34,6 +34,13 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 $uid = (int) $_SESSION['user_id'];
+
+// ── Protection CSRF (token via en-tête X-CSRF-Token) ──
+if (!csrf_verify()) {
+    http_response_code(403);
+    echo json_encode(["ok" => false, "error" => "Requête non autorisée (CSRF)"]);
+    exit;
+}
 
 // ── Lecture payload ──
 $data = json_decode(file_get_contents("php://input"), true);
@@ -143,10 +150,10 @@ try {
 
 } catch (Exception $e) {
     $conn->rollback();
+    logError("save_training.php - " . $e->getMessage());  // loggé côté serveur, pas exposé au client
     http_response_code(500);
     echo json_encode([
         "ok"    => false,
-        "error" => "DB error",
-        "debug" => $e->getMessage(),  // À retirer en prod
+        "error" => "Une erreur est survenue lors de la sauvegarde.",
     ]);
 }
