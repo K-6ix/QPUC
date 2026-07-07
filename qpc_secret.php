@@ -14,4 +14,4 @@
 // Ce fichier ne doit JAMAIS être commité sur un GitHub public avec la
 // vraie clé (mettez-le dans .gitignore, gardez un modèle avec placeholder).
 // ════════════════════════════════════════════════════════════════
-define('QPC_SERVER_KEY', 'qpc_server_2026'); // ← À CHANGER EN PROD
+define('QPC_SERVER_KEY', '03ec81ec1225f4b48fdc19c01a2175df'); // ← À CHANGER EN PROD

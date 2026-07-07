@@ -775,6 +775,95 @@ function tryRankedMatch() {
 setInterval(tryRankedMatch, MM_TICK_MS);
 
 // ══════════════════════════════════════════
+// MATCHMAKING AMICAL — quick match (FIFO)
+// ══════════════════════════════════════════
+// Même principe que la file classée, sauf qu'ici on ne matche PAS par ELO :
+// on prend simplement les 2 joueurs qui attendent depuis le plus longtemps.
+// La room créée a isRanked: false → save_elo.php ne bougera pas l'ELO.
+const friendlyQueue = []; // { playerId, name, elo, socketId, joinedAt }
+const FRIENDLY_MM_TICK_MS = 1500;
+
+function removeFromFriendlyQueueByPlayer(playerId) {
+    const i = friendlyQueue.findIndex(e => e.playerId === playerId);
+    if (i !== -1) friendlyQueue.splice(i, 1);
+}
+function removeFromFriendlyQueueBySocket(socketId) {
+    const i = friendlyQueue.findIndex(e => e.socketId === socketId);
+    if (i !== -1) friendlyQueue.splice(i, 1);
+}
+
+function buildFriendlyRoom(code, a, b) {
+    const mkPlayer = (e, isHost) => ({
+        id: e.playerId, socketId: e.socketId,
+        name: e.name, elo: e.elo,
+        score: 0, correct: 0, wrong: 0, catResults: [],
+        ready: true, isHost,
+    });
+    return {
+        code, status: 'preparing_game',
+        isRanked: false, // ← clé : ELO figé
+        players: { [a.playerId]: mkPlayer(a, true), [b.playerId]: mkPlayer(b, false) },
+        questions: [], currentQ: 0,
+        buzzedBy: null, answered: false, buzzOpen: false,
+        timerInterval: null, nextQuestionTimeout: null,
+        readTimeout: null, buzzTimeout: null,
+        deleteTimeout: null,
+        timerLeft: 0,
+        transitioning: false,
+        processingAnswer: false,
+        phase: 'redirecting',
+        opponentChanceFor: null,
+        alreadyOfferedChance: false,
+        transitionQueue: [],
+        countdownStarted: false,
+        gameReady: { [a.playerId]: false, [b.playerId]: false },
+        rematchAccepted: new Set(),
+    };
+}
+
+function createFriendlyMatch(a, b) {
+    let code;
+    do { code = generateCode(); } while (rooms.has(code));
+
+    const room = buildFriendlyRoom(code, a, b);
+    rooms.set(code, room);
+
+    io.sockets.sockets.get(a.socketId)?.join(code);
+    io.sockets.sockets.get(b.socketId)?.join(code);
+
+    const payloadFor = (me, opp, host) => ({
+        code, isRanked: false, host,
+        you:      { id: me.playerId,  name: me.name,  elo: me.elo  },
+        opponent: { id: opp.playerId, name: opp.name, elo: opp.elo },
+    });
+
+    // Événement distinct de 'match_found' (classé) pour que le client
+    // sache qu'il ne va pas gagner/perdre d'ELO.
+    io.to(a.socketId).emit('friendly_match_found', payloadFor(a, b, true));
+    io.to(b.socketId).emit('friendly_match_found', payloadFor(b, a, false));
+
+    console.log(`🎉 [AMICAL] Quick-match "${code}" : ${a.name} vs ${b.name}`);
+}
+
+function tryFriendlyMatch() {
+    // Purge des entrées dont le socket est déconnecté.
+    for (let i = friendlyQueue.length - 1; i >= 0; i--) {
+        if (!io.sockets.sockets.get(friendlyQueue[i].socketId)) friendlyQueue.splice(i, 1);
+    }
+    if (friendlyQueue.length < 2) return;
+
+    // FIFO strict : les 2 qui attendent depuis le plus longtemps.
+    friendlyQueue.sort((x, y) => x.joinedAt - y.joinedAt);
+    const a = friendlyQueue.shift();
+    const b = friendlyQueue.shift();
+    createFriendlyMatch(a, b);
+
+    if (friendlyQueue.length >= 2) tryFriendlyMatch(); // s'il en reste ≥2, on continue
+}
+
+setInterval(tryFriendlyMatch, FRIENDLY_MM_TICK_MS);
+
+// ══════════════════════════════════════════
 // SOCKET.IO EVENTS
 // ══════════════════════════════════════════
 io.on('connection', (socket) => {
@@ -802,6 +891,31 @@ io.on('connection', (socket) => {
         if (playerId) removeFromQueueByPlayer(playerId);
         else          removeFromQueueBySocket(socket.id);
         socket.emit('ranked_cancelled');
+    });
+
+    // ── MATCHMAKING AMICAL : rejoindre la file (quick match) ──
+    socket.on('find_friendly_match', ({ playerId, name, elo }) => {
+        if (!playerId) { socket.emit('error', { message: 'playerId manquant' }); return; }
+        removeFromFriendlyQueueByPlayer(playerId);       // anti-doublon
+        removeFromQueueByPlayer(playerId);               // au cas où le user était en file classée
+        const entry = {
+            playerId,
+            name: (name || 'Joueur').trim().slice(0, 20),
+            elo:  parseInt(elo) || ELO.START,
+            socketId: socket.id,
+            joinedAt: Date.now(),
+        };
+        friendlyQueue.push(entry);
+        socket.emit('friendly_queued', { inQueue: friendlyQueue.length });
+        console.log(`🎯 [AMICAL] ${entry.name} en file quick-match (${friendlyQueue.length})`);
+        tryFriendlyMatch();
+    });
+
+    // ── MATCHMAKING AMICAL : quitter la file ──
+    socket.on('cancel_friendly', ({ playerId }) => {
+        if (playerId) removeFromFriendlyQueueByPlayer(playerId);
+        else          removeFromFriendlyQueueBySocket(socket.id);
+        socket.emit('friendly_cancelled');
     });
 
     // ── CRÉER ──
@@ -1162,7 +1276,8 @@ io.on('connection', (socket) => {
 
     // ── DÉCONNEXION ──
     socket.on('disconnect', () => {
-        removeFromQueueBySocket(socket.id); // sort de la file matchmaking si présent
+        removeFromQueueBySocket(socket.id);         // sort de la file classée si présent
+        removeFromFriendlyQueueBySocket(socket.id); // sort de la file amicale si présent
         for (const [code, room] of rooms) {
             const playerId = getPlayerIdBySocket(room, socket.id);
             if (!playerId) continue;

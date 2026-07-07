@@ -2,12 +2,21 @@
 require_once __DIR__ . '/csrf.php';
 require "db.php";
 
+// ── Redirection avec erreur (affichée inline sur connexion.php) ──
+// error_form = 'signup' → connexion.php ouvre direct le panneau inscription
+function redirect_error($msg) {
+    $_SESSION['error']        = $msg;
+    $_SESSION['error_form']   = 'signup';
+    $_SESSION['old_username'] = trim($_POST['username'] ?? '');
+    $_SESSION['old_email']    = trim($_POST['email'] ?? '');
+    header("Location: connexion.php");
+    exit;
+}
+
 // ── Protection CSRF ─────────────────────────────────────────
 if (!csrf_verify()) {
     logError("signup.php - CSRF token invalide");
-    $_SESSION['error'] = "Session expirée, veuillez réessayer.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Session expirée, veuillez réessayer.");
 }
 
 $username = trim($_POST['username'] ?? '');
@@ -16,39 +25,32 @@ $password = $_POST['password']      ?? '';
 
 // ── Validation ──────────────────────────────────────────────
 if (empty($username) || empty($email) || empty($password)) {
-    $_SESSION['error'] = "Tous les champs sont obligatoires.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Tous les champs sont obligatoires.");
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $_SESSION['error'] = "Adresse email invalide.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Adresse email invalide.");
 }
 
 if (strlen($password) < 6) {
-    $_SESSION['error'] = "Le mot de passe doit contenir au moins 6 caractères.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Le mot de passe doit contenir au moins 6 caractères.");
 }
 
 // ── Vérifier si username/email déjà utilisés ─────────────────
-$check = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+$check = $conn->prepare("SELECT username, email FROM users WHERE username = ? OR email = ? LIMIT 1");
 if (!$check) {
     logError("signup.php - prepare() check failed: " . $conn->error);
-    $_SESSION['error'] = "Une erreur est survenue. Réessayez.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Une erreur est survenue. Réessayez.");
 }
 $check->bind_param("ss", $username, $email);
 $check->execute();
-$check->store_result();
+$existing = $check->get_result()->fetch_assoc();
 
-if ($check->num_rows > 0) {
-    $_SESSION['error'] = "Ce nom d'utilisateur ou cet email est déjà utilisé.";
-    header("Location: connexion.php");
-    exit;
+if ($existing) {
+    if (strcasecmp($existing['username'], $username) === 0) {
+        redirect_error("Ce nom d'utilisateur est déjà pris.");
+    }
+    redirect_error("Un compte existe déjà avec cet email.");
 }
 
 // ── Insertion utilisateur ────────────────────────────────────
@@ -56,17 +58,13 @@ $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
 if (!$stmt) {
     logError("signup.php - prepare() insert failed: " . $conn->error);
-    $_SESSION['error'] = "Une erreur est survenue. Réessayez.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Une erreur est survenue. Réessayez.");
 }
 $stmt->bind_param("sss", $username, $email, $hashedPassword);
 
 if (!$stmt->execute()) {
     logError("signup.php - execute() failed pour '$username': " . $stmt->error);
-    $_SESSION['error'] = "Une erreur est survenue. Veuillez réessayer.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Une erreur est survenue. Veuillez réessayer.");
 }
 
 $new_user_id = $conn->insert_id;

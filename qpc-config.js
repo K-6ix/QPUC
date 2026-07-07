@@ -10,7 +10,7 @@
    qu'il doit parler à http://localhost:3000.
    ══════════════════════════════════════════════════════════════ */
 window.QPC_CONFIG = (function () {
-    const PROD_SERVER_URL = 'https://VOTRE-APP.koyeb.app'; // ← À ÉDITER (1 seule fois)
+    const PROD_SERVER_URL = 'https://qpc-server.onrender.com';
 
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     return {

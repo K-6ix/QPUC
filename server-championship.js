@@ -1702,6 +1702,74 @@ function tryChampMatch() {
 setInterval(tryChampMatch, CHAMP_MM_TICK_MS);
 
 // ============================================================================
+//  MATCHMAKING AMICAL — quick match championnat (4 joueurs, FIFO)
+// ============================================================================
+//  Même principe que la file classée, sauf qu'ici on ne matche PAS par ELO :
+//  on prend simplement les 4 joueurs qui attendent depuis le plus longtemps.
+//  La room créée a isRanked: false → l'ELO ne bouge pas.
+const champFriendlyQueue = []; // { playerId, name, elo, socketId, joinedAt }
+const CHAMP_FRIENDLY_TICK_MS = 1500;
+
+function champRemoveFromFriendlyQueueByPlayer(playerId) {
+    const i = champFriendlyQueue.findIndex(e => e.playerId === playerId);
+    if (i !== -1) champFriendlyQueue.splice(i, 1);
+}
+function champRemoveFromFriendlyQueueBySocket(socketId) {
+    const i = champFriendlyQueue.findIndex(e => e.socketId === socketId);
+    if (i !== -1) champFriendlyQueue.splice(i, 1);
+}
+
+// Crée une room AMICALE à partir de 4 entrées de file, puis lance le tournoi.
+function createFriendlyChampMatch(entries) {
+    let code;
+    do { code = generateCode(); } while (rooms[code]);
+
+    const players = {};
+    entries.forEach(e => {
+        players[e.playerId] = {
+            socketId: e.socketId, name: e.name,
+            ready: true, alive: true, score: 0, m3Score: 0, joinedAt: Date.now()
+        };
+    });
+
+    rooms[code] = {
+        code, status: 'starting', hostId: entries[0].playerId, createdAt: Date.now(),
+        isRanked: false, // ← clé : ELO figé
+        players
+    };
+
+    entries.forEach(e => {
+        const s = io.sockets.sockets.get(e.socketId);
+        if (s) { s.join(code); s.data = { playerId: e.playerId, roomCode: code }; }
+    });
+
+    io.to(code).emit('champ_friendly_match_found', {
+        code,
+        players: entries.map(e => ({ id: e.playerId, name: e.name, elo: e.elo }))
+    });
+    console.log(`[CHAMP AMICAL] Quick-match ${code} : ${entries.map(e => e.name).join(', ')}`);
+
+    setTimeout(() => launchChampStartSequence(code), 2800);
+}
+
+function tryChampFriendlyMatch() {
+    // Purge des entrées dont le socket est déconnecté.
+    for (let i = champFriendlyQueue.length - 1; i >= 0; i--) {
+        if (!io.sockets.sockets.get(champFriendlyQueue[i].socketId)) champFriendlyQueue.splice(i, 1);
+    }
+    if (champFriendlyQueue.length < CONFIG.MAX_PLAYERS) return;
+
+    // FIFO strict : les 4 qui attendent depuis le plus longtemps.
+    champFriendlyQueue.sort((x, y) => x.joinedAt - y.joinedAt);
+    const group = champFriendlyQueue.splice(0, CONFIG.MAX_PLAYERS);
+    createFriendlyChampMatch(group);
+
+    if (champFriendlyQueue.length >= CONFIG.MAX_PLAYERS) tryChampFriendlyMatch();
+}
+
+setInterval(tryChampFriendlyMatch, CHAMP_FRIENDLY_TICK_MS);
+
+// ============================================================================
 //  SOCKET HANDLERS
 // ============================================================================
 io.on('connection', (socket) => {
@@ -1730,6 +1798,32 @@ io.on('connection', (socket) => {
         if (playerId) champRemoveFromQueueByPlayer(playerId);
         else          champRemoveFromQueueBySocket(socket.id);
         socket.emit('champ_ranked_cancelled');
+    });
+
+    // ── MATCHMAKING AMICAL : rejoindre la file (quick match championnat) ──
+    socket.on('champ_find_friendly_match', ({ playerId, name, elo }) => {
+        if (!playerId) { socket.emit('champ_error', { message: 'playerId manquant' }); return; }
+        champRemoveFromFriendlyQueueByPlayer(playerId);   // anti-doublon
+        champRemoveFromQueueByPlayer(playerId);           // au cas où le user était en file classée
+        const entry = {
+            playerId,
+            name: (name && name.trim()) ? name.trim().slice(0, 20) : 'Joueur',
+            elo:  parseInt(elo) || 1200,
+            socketId: socket.id,
+            joinedAt: Date.now(),
+        };
+        champFriendlyQueue.push(entry);
+        socket.data = { playerId, roomCode: null };
+        socket.emit('champ_friendly_queued', { inQueue: champFriendlyQueue.length, needed: CONFIG.MAX_PLAYERS });
+        console.log(`[CHAMP AMICAL] ${entry.name} en file quick-match (${champFriendlyQueue.length}/${CONFIG.MAX_PLAYERS})`);
+        tryChampFriendlyMatch();
+    });
+
+    // ── MATCHMAKING AMICAL : quitter la file ──
+    socket.on('champ_cancel_friendly', ({ playerId }) => {
+        if (playerId) champRemoveFromFriendlyQueueByPlayer(playerId);
+        else          champRemoveFromFriendlyQueueBySocket(socket.id);
+        socket.emit('champ_friendly_cancelled');
     });
 
     // ============================================================
@@ -1972,7 +2066,8 @@ io.on('connection', (socket) => {
     socket.on('champ_leave_room', () => handleLeave(socket, 'leave'));
     socket.on('disconnect',       () => {
         console.log(`[DISCONNECT] ${socket.id}`);
-        champRemoveFromQueueBySocket(socket.id); // sort de la file matchmaking si présent
+        champRemoveFromQueueBySocket(socket.id);         // sort de la file classée si présent
+        champRemoveFromFriendlyQueueBySocket(socket.id); // sort de la file amicale si présent
         handleLeave(socket, 'disconnect');
     });
 });

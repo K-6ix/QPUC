@@ -1462,3 +1462,113 @@ html.light .end-player { box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
 /* Light mode : la piste reste rouge (sémantique danger), juste un poil plus dense */
 html.light .slide-confirm { background: rgba(224,72,72,0.08); }
 html.light .slide-confirm-track { color: #c0392b; }
+
+/* ══════════════════════════════════════════════════
+   END SCREEN — VERSION ANALYTIQUE
+   Verdict + chip ELO, comparaison en barres, ta partie,
+   film du match (timeline Q1→Qn), défaite sobre.
+══════════════════════════════════════════════════ */
+.end-screen { gap:16px; overflow-y:auto; justify-content:flex-start; padding-top:6vh; }
+
+.eg-seq { opacity:0; transform:translateY(14px); }
+.end-screen.visible .eg-seq { animation:eg-in .5s cubic-bezier(.2,.9,.3,1) forwards; }
+.end-screen.visible .eg-seq:nth-of-type(1) { animation-delay:.05s; }
+.end-screen.visible .eg-grid .eg-seq:nth-child(1) { animation-delay:.18s; }
+.end-screen.visible .eg-grid .eg-seq:nth-child(2) { animation-delay:.3s; }
+.end-screen.visible .eg-grid .eg-seq:nth-child(3) { animation-delay:.42s; }
+.end-screen.visible .end-btns.eg-seq { animation-delay:.6s; }
+@keyframes eg-in { to { opacity:1; transform:none; } }
+
+/* ── Bandeau verdict ── */
+.eg-head {
+    width:100%; max-width:680px;
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:16px 22px; border-radius:14px;
+    background:linear-gradient(160deg, var(--bg3, #141414), var(--bg2, #0d0d0d));
+    border:1px solid var(--border, rgba(212,175,55,.2));
+}
+.eg-verdict {
+    font-family:'Cinzel Decorative', serif; font-weight:900;
+    font-size:clamp(24px, 5vw, 34px); letter-spacing:3px; line-height:1.1;
+    color:var(--gold, #d4af37); text-shadow:0 0 30px rgba(212,175,55,.35);
+}
+.end-screen.defeat .eg-verdict { color:#b8b4a4; text-shadow:none; }
+.eg-sub { margin-top:5px; font-size:11px; letter-spacing:2px; color:var(--text3, rgba(240,232,204,.35)); text-transform:uppercase; }
+.eg-chip {
+    font-family:'Cinzel', serif; font-weight:900; font-size:17px;
+    padding:9px 18px; border-radius:24px; white-space:nowrap; flex-shrink:0;
+}
+.eg-chip.up   { color:#4caf78; background:rgba(76,175,120,.12);  border:1px solid rgba(76,175,120,.35); }
+.eg-chip.down { color:#e05555; background:rgba(224,85,85,.12);   border:1px solid rgba(224,85,85,.35); }
+
+/* ── Grille de panneaux ── */
+.eg-grid {
+    width:100%; max-width:680px;
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+}
+.eg-panel {
+    padding:16px 18px; border-radius:14px;
+    background:linear-gradient(160deg, var(--bg3, #141414), var(--bg2, #0d0d0d));
+    border:1px solid var(--border, rgba(212,175,55,.2));
+}
+.eg-full { grid-column:1 / -1; }
+.eg-title {
+    font-family:'Cinzel', serif; font-size:11px; font-weight:700;
+    letter-spacing:2.5px; color:var(--text2, rgba(240,232,204,.6));
+    text-transform:uppercase; margin-bottom:13px;
+}
+
+/* ── Comparaison ── */
+.eg-cmp { margin-bottom:12px; }
+.eg-cmp:last-child { margin-bottom:2px; }
+.eg-cmp-l { display:flex; justify-content:space-between; font-size:11.5px; color:var(--text2, rgba(240,232,204,.6)); margin-bottom:5px; }
+.eg-cmp-l b { color:var(--text1, #f0e8cc); font-weight:600; }
+.eg-cmp-bars { display:flex; gap:4px; height:7px; }
+.eg-cmp-bars > div { border-radius:6px; width:0; transition:width 1s cubic-bezier(.3,.9,.3,1); min-width:2px; }
+.eg-cmp-bars .me { background:linear-gradient(90deg, #8a6e2f, var(--gold, #d4af37)); }
+.eg-cmp-bars .op { background:linear-gradient(90deg, #3f6f9e, #5599dd); }
+
+/* ── Ta partie ── */
+.eg-stats { display:flex; gap:8px; }
+.eg-stat { flex:1; text-align:center; padding:8px 4px; }
+.eg-stat .sv { font-family:'Cinzel', serif; font-weight:900; font-size:25px; color:var(--gold, #d4af37); }
+.eg-stat .sl { margin-top:4px; font-size:9px; letter-spacing:1.6px; color:var(--text3, rgba(240,232,204,.35)); text-transform:uppercase; }
+
+/* ── Film du match ── */
+.eg-film-title { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.eg-legend { display:flex; gap:12px; font-family:'Raleway', sans-serif; font-size:10px; letter-spacing:.4px; text-transform:none; color:var(--text3, rgba(240,232,204,.35)); }
+.eg-lg { display:flex; align-items:center; gap:5px; }
+.eg-lg i { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.eg-lg.me i { background:var(--gold, #d4af37); }
+.eg-lg.op i { background:#5599dd; }
+.eg-lg.no i { background:#4a4a4a; }
+.eg-dots { display:flex; justify-content:space-between; gap:5px; }
+.eg-fq { flex:1; text-align:center; min-width:0; }
+.eg-dot {
+    width:100%; max-width:32px; aspect-ratio:1; border-radius:50%;
+    margin:0 auto; display:flex; align-items:center; justify-content:center;
+    font-size:11px; background:#4a4a4a; color:rgba(255,255,255,.55);
+    transform:scale(0);
+}
+.end-screen.visible .eg-dot { animation:eg-dot-pop .4s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes eg-dot-pop { to { transform:scale(1); } }
+.eg-dot.me { background:radial-gradient(circle, #fcf6ba, var(--gold, #d4af37) 70%); color:#060606; box-shadow:0 0 10px rgba(212,175,55,.5); }
+.eg-dot.op { background:radial-gradient(circle, #8ec0ee, #5599dd 70%); color:#04121f; }
+.eg-ql { margin-top:5px; font-size:8.5px; color:var(--text3, rgba(240,232,204,.35)); letter-spacing:.4px; }
+.eg-tier { display:block; width:13px; height:3px; border-radius:3px; margin:4px auto 0; }
+.eg-tier.f { background:#4caf78; } .eg-tier.m { background:var(--gold, #d4af37); } .eg-tier.d { background:#e05555; }
+
+/* ── Boutons (les <a> héritent du look bouton) ── */
+a.end-btn-secondary { text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+
+/* ── Responsive ── */
+@media (max-width:560px) {
+    .eg-grid { grid-template-columns:1fr; }
+    .eg-head { flex-direction:column; align-items:flex-start; gap:10px; }
+    .eg-dots { flex-wrap:wrap; justify-content:center; }
+    .eg-fq { flex:0 0 calc(20% - 5px); }
+}
+@media (prefers-reduced-motion:reduce) {
+    .eg-seq, .eg-dot { animation-duration:.001s !important; }
+    .eg-cmp-bars > div { transition-duration:.001s !important; }
+}
