@@ -71,7 +71,21 @@ $winrate_all     = $total_games_all > 0
                  : 0;
 
 // ── Rang global + ELO ───────────────────────────────────────
-$rank_stmt = $conn->prepare("SELECT `rank`, elo FROM leaderboard WHERE id = ?");
+// (Remplace la vue `leaderboard` — incompatible avec MySQL 5.7 InfinityFree)
+// Rang = 1 + nombre de joueurs qui ont un ELO strictement supérieur
+$rank_stmt = $conn->prepare("
+    SELECT
+        COALESCE(ps.elo, 1200) AS elo,
+        (
+            SELECT COUNT(*) + 1
+            FROM users u2
+            LEFT JOIN player_stats ps2 ON ps2.user_id = u2.id
+            WHERE COALESCE(ps2.elo, 1200) > COALESCE(ps.elo, 1200)
+        ) AS `rank`
+    FROM users u
+    LEFT JOIN player_stats ps ON ps.user_id = u.id
+    WHERE u.id = ?
+");
 $rank_stmt->bind_param("i", $user_id);
 $rank_stmt->execute();
 $rank_row = $rank_stmt->get_result()->fetch_assoc();
@@ -229,7 +243,23 @@ foreach ($perf_season_rows as $r) {
 }
 
 // ── Top 10 leaderboard ───────────────────────────────────────
-$lb_stmt = $conn->query("SELECT id, username, score_total, `rank` FROM leaderboard LIMIT 10");
+// (Remplace la vue `leaderboard` — incompatible avec MySQL 5.7 InfinityFree)
+// Astuce compatible 5.7 : variable utilisateur @r incrémentée par la sous-requête ordonnée
+$conn->query("SET @r := 0");
+$lb_stmt = $conn->query("
+    SELECT
+        id,
+        username,
+        score_total,
+        (@r := @r + 1) AS `rank`
+    FROM (
+        SELECT u.id, u.username, u.score_total, COALESCE(ps.elo, 1200) AS elo
+        FROM users u
+        LEFT JOIN player_stats ps ON ps.user_id = u.id
+        ORDER BY elo DESC, u.score_total DESC
+        LIMIT 10
+    ) t
+");
 $leaderboard = $lb_stmt->fetch_all(MYSQLI_ASSOC);
 
 // ── Messages flash ──────────────────────────────────────────
@@ -240,10 +270,11 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<script>try{if(localStorage.getItem('qpc-theme')==='light')document.documentElement.classList.add('light');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HESTIM — Champion Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500;600;700&family=Kanit:ital,wght@1,900&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   /* ═══════════════════════════════════════
@@ -273,7 +304,65 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
     --r: 12px;
     --r2: 20px;
     --ease: cubic-bezier(0.4,0,0.2,1);
+
+    /* ── Tokens header (portés depuis index.php) ── */
+    --gold-light: #fcf6ba;
+    --gold-base:  #d4af37;
+    --gold-dark:  #8a6e2f;
+    --gold-glow:  rgba(212,175,55,0.35);
+    --metallic:   linear-gradient(to right, var(--gold-dark), var(--gold-base) 30%, var(--gold-light) 50%, var(--gold-base) 70%, var(--gold-dark));
+    --header-bg:  rgba(6,6,6,0.85);
+    --ink:        #ffffff;
+    --ink-2:      rgba(255,255,255,0.55);
+    --ink-4:      rgba(255,255,255,0.2);
+    --line-soft:  rgba(255,255,255,0.05);
+    --gold-line:  rgba(212,175,55,0.15);
+    --gold-line-strong: rgba(212,175,55,0.35);
+    --gold-tint:  rgba(212,175,55,0.05);
+    --gold-text:  var(--gold-light);
+    --on-gold:    #000;
   }
+
+  /* ═══════════════════════════════════════
+    MODE CLAIR (clé partagée qpc-theme)
+  ═══════════════════════════════════════ */
+  html.light {
+    --bg:       #ffffff;
+    --bg2:      #f4f2ec;
+    --border:   rgba(138,110,47,0.22);
+    --border2:  rgba(138,110,47,0.42);
+    --text:     #1a1408;
+    --text2:    rgba(26,20,8,0.62);
+    --text3:    rgba(26,20,8,0.52);
+    --bg1:      #faf9f5;
+    --bg3:      #eae7df;                 /* fond des champs (était #1a1a1a → noir) */
+    --g100:     #5f4a12;                 /* gros chiffres/titres (était #fff8e0) */
+    --g300:     #9a7815;                 /* or lisible sur blanc (était #f0d060) */
+    --grad:     linear-gradient(120deg, #5a4410 0%, #8a6e2f 38%, #b8902a 50%, #8a6e2f 62%, #5a4410 100%);
+    --metallic: linear-gradient(to right, #6b5410, #8a6e2f 38%, #b8902a 50%, #8a6e2f 62%, #6b5410);
+
+    --header-bg:  rgba(255,255,255,0.88);
+    --ink:        #0a0a0a;
+    --ink-2:      rgba(10,10,10,0.6);
+    --ink-4:      rgba(10,10,10,0.3);
+    --line-soft:  rgba(10,10,10,0.06);
+    --gold-line:  rgba(138,110,47,0.3);
+    --gold-line-strong: rgba(138,110,47,0.55);
+    --gold-tint:  rgba(212,175,55,0.08);
+    --gold-text:  var(--gold-dark);
+  }
+  html.light body::before {
+    background:
+      radial-gradient(ellipse 600px 300px at 70% 10%, rgba(212,175,55,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 400px 400px at 10% 90%, rgba(212,175,55,0.05) 0%, transparent 70%);
+  }
+  html.light #cursor { mix-blend-mode: normal; }
+  html.theme-transitioning, html.theme-transitioning * {
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease !important;
+  }
+  /* Exceptions mode clair : textes posés sur un fond qui reste sombre */
+  html.light .avatar-edit-overlay { color: #fff8e0; }   /* overlay noir au survol avatar */
+  html.light .welcome-greeting    { color: var(--gold-dark); } /* eyebrow plus lisible */
 
   /* ═══════════════════════════════════════
     RESET & BASE
@@ -334,253 +423,310 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   }
 
   /* ═══════════════════════════════════════
-    SIDEBAR
-  ═══════════════════════════════════════ */
-  .sidebar {
-    width: 260px;
-    min-height: 100vh;
-    background: var(--bg1);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    top: 0; left: 0; bottom: 0;
-    z-index: 50;
-    transition: transform 0.35s var(--ease);
-  }
-
-  .sidebar-logo {
-    padding: 32px 28px 24px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo-text {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 1.2rem;
-    font-weight: 900;
-    background: var(--grad);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: 3px;
-    display: block;
-  }
-
-  .logo-sub {
-    font-size: 0.6rem;
-    letter-spacing: 4px;
-    color: var(--text2);
-    text-transform: uppercase;
-    margin-top: 4px;
-    display: block;
-  }
-
-  /* Nav sections */
-  .nav-section {
-    padding: 20px 16px 8px;
-  }
-
-  .nav-label {
-    font-size: 0.58rem;
-    letter-spacing: 3px;
-    color: var(--text3);
-    text-transform: uppercase;
-    padding: 0 12px;
-    margin-bottom: 8px;
-    display: block;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 14px;
-    border-radius: var(--r);
-    color: var(--text2);
-    text-decoration: none;
-    font-size: 0.82rem;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    transition: all 0.22s var(--ease);
-    cursor: pointer;
-    border: 1px solid transparent;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .nav-item::before {
-    content:'';
-    position:absolute; inset:0;
-    background: var(--grad-subtle);
-    opacity:0;
-    transition: opacity 0.22s;
-  }
-
-  .nav-item:hover { color: var(--g100); border-color: var(--border); }
-  .nav-item:hover::before { opacity:1; }
-
-  .nav-item.active {
-    color: var(--g300);
-    background: rgba(212,175,55,0.08);
-    border-color: var(--border2);
-  }
-
-  .nav-item.active::after {
-    content:'';
-    position:absolute; right:0; top:20%; bottom:20%;
-    width:2px;
-    background: var(--grad);
-    border-radius:2px;
-  }
-
-  .nav-icon {
-    width: 18px; height: 18px;
-    opacity: 0.7;
-    flex-shrink: 0;
-  }
-
-  .nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity:1; }
-
-  .nav-badge {
-    margin-left: auto;
-    background: var(--g700);
-    color: var(--g100);
-    font-size: 0.6rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 20px;
-    letter-spacing: 0.5px;
-  }
-
-  /* Sidebar bottom profile */
-  .sidebar-profile {
-    margin-top: auto;
-    padding: 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .profile-mini {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border-radius: var(--r);
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-
-  .profile-mini:hover { border-color: var(--border2); }
-
-  .avatar-sm {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background: var(--grad);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Cinzel', serif;
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: #000;
-    flex-shrink: 0;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .avatar-sm img {
-    position: absolute; inset:0;
-    width:100%; height:100%;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-
-  .profile-mini-info { flex:1; min-width:0; }
-  .profile-mini-name {
-    font-size: 0.82rem; font-weight: 600;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .profile-mini-rank {
-    font-size: 0.65rem; color: var(--g400);
-    letter-spacing: 1px;
-  }
-
-  .profile-mini-dots { color: var(--text3); font-size: 1.1rem; letter-spacing: 1px; }
-
-  /* ═══════════════════════════════════════
     MAIN LAYOUT
   ═══════════════════════════════════════ */
   .main {
-    margin-left: 260px;
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding-top: 72px; /* header fixe */
     position: relative;
     z-index: 1;
   }
 
-  /* ── TOPBAR ── */
-  .topbar {
-    height: 68px;
+  /* ════════════════════════════
+    HEADER (même header que index.php)
+  ════════════════════════════ */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: 30% 50% 20%;
+    align-items: center;
+    padding: 0 40px;
+    height: 72px;
+    border-bottom: 1px solid var(--gold-line);
+    background: var(--header-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    animation: slideDown 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.2s forwards;
+  }
+
+  .logo {
+    font-family: 'Kanit', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    background: var(--metallic);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-transform: uppercase;
+    filter: drop-shadow(0 0 6px var(--gold-glow));
+    text-decoration: none;
+    justify-self: start;
+  }
+
+  header nav ul {
+    display: flex;
+    list-style: none;
+    gap: 28px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  header nav a {
+    text-decoration: none;
+    color: var(--ink-2);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    position: relative;
+    transition: color 0.3s;
+    font-family: 'Montserrat', sans-serif;
+  }
+  header nav a:hover { color: var(--gold-text); }
+  header nav a::after {
+    content:'';
+    position:absolute;
+    width:0; height:1px;
+    bottom:-4px; left:0;
+    background: var(--metallic);
+    transition: width 0.3s;
+  }
+  header nav a:hover::after { width:100%; }
+
+  .btn-play {
+    background: var(--metallic);
+    color: var(--on-gold) !important;
+    -webkit-text-fill-color: var(--on-gold) !important;
+    padding: 7px 22px;
+    border-radius: 30px;
+    font-weight: 900;
+    border: 1px solid var(--gold-base);
+    box-shadow: 0 0 12px var(--gold-glow);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-play:hover { transform: scale(1.05); box-shadow: 0 0 22px rgba(212,175,55,0.7); }
+  .btn-play::after { display: none; }
+
+  .header-right {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--gold-line-strong);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.25s, color 0.25s, transform 0.2s, background 0.25s;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover {
+    border-color: var(--gold-base);
+    color: var(--gold-text);
+    background: var(--gold-tint);
+  }
+  .icon-btn:active { transform: scale(0.95); }
+  .icon-btn svg { width: 15px; height: 15px; }
+  #theme-toggle .theme-moon { display: none; }
+  #theme-toggle .theme-sun  { display: block; }
+  html.light #theme-toggle .theme-moon { display: block; }
+  html.light #theme-toggle .theme-sun  { display: none; }
+
+  /* ── Déconnexion discrète (bas de page) ── */
+  .logout-corner {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border: 1px solid var(--gold-line-strong);
+    border-radius: 30px;
+    background: rgba(6,6,6,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--gold-text);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    opacity: 0.5;
+    transition: opacity 0.3s, box-shadow 0.3s, border-color 0.3s;
+  }
+  .logout-corner:hover {
+    opacity: 1;
+    border-color: var(--gold-base);
+    box-shadow: 0 0 18px var(--gold-glow);
+  }
+
+  #burger-trigger { display: none; }
+
+  @keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+  }
+
+  /* ════════════════════════════
+    MOBILE DRAWER MENU
+  ════════════════════════════ */
+  #mobile-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #mobile-menu.is-open {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  #mobile-menu-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  #mobile-menu.is-open #mobile-menu-backdrop { opacity: 1; }
+
+  #mobile-menu-panel {
+    position: absolute;
+    right: 0; top: 0;
+    height: 100%;
+    width: 75%;
+    max-width: 360px;
+    background: var(--bg);
+    border-left: 1px solid var(--gold-line);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -10px 0 40px rgba(0,0,0,0.4);
+  }
+  #mobile-menu.is-open #mobile-menu-panel { transform: translateX(0); }
+
+  .drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 36px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(6,6,6,0.7);
-    backdrop-filter: blur(12px);
-    position: sticky; top:0; z-index:40;
-    animation: fadeDown 0.6s var(--ease) both;
+    padding: 0 24px;
+    height: 72px;
+    border-bottom: 1px solid var(--gold-line);
   }
 
-  @keyframes fadeDown {
-    from { transform: translateY(-20px); opacity:0; }
-    to   { transform: translateY(0);     opacity:1; }
+  .drawer-nav {
+    flex: 1;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
-  .topbar-title {
-    font-family: 'Cinzel', serif;
-    font-size: 0.75rem;
+  .drawer-section-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
     letter-spacing: 4px;
-    color: var(--text2);
     text-transform: uppercase;
+    color: var(--gold-text);
+    margin-bottom: 18px;
   }
 
-  .topbar-right { display:flex; gap:16px; align-items:center; }
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line-soft);
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    transition: color 0.25s, padding-left 0.25s;
+    font-family: 'Montserrat', sans-serif;
+  }
+  .drawer-link:hover {
+    color: var(--gold-text);
+    padding-left: 6px;
+  }
+  .drawer-link svg {
+    width: 16px;
+    height: 16px;
+    color: var(--ink-4);
+    transition: color 0.25s, transform 0.25s;
+  }
+  .drawer-link:hover svg {
+    color: var(--gold-text);
+    transform: translateX(4px);
+  }
 
-  .topbar-btn {
-    padding: 8px 20px;
-    border-radius: 30px;
-    font-size: 0.72rem;
-    font-weight: 600;
+  .drawer-footer {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .drawer-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-radius: 40px;
+    font-weight: 900;
+    font-size: 0.8rem;
     letter-spacing: 2px;
     text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.22s var(--ease);
     text-decoration: none;
-    border: 1px solid var(--border2);
-    color: var(--text2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-family: 'Montserrat', sans-serif;
+  }
+  .drawer-cta.primary {
+    background: var(--metallic);
+    color: var(--on-gold);
+    border: 1px solid var(--gold-base);
+    box-shadow: 0 0 12px var(--gold-glow);
+  }
+  .drawer-cta.primary:hover { transform: translateY(-2px); }
+  .drawer-cta.secondary {
     background: transparent;
-    font-family: 'Raleway', sans-serif;
+    border: 1px solid var(--gold-line-strong);
+    color: var(--gold-text);
   }
-  .topbar-btn:hover { color: var(--g100); border-color: var(--g400); background: rgba(212,175,55,0.06); }
-
-  .topbar-btn.primary {
-    background: var(--grad);
-    color: #000;
-    border-color: transparent;
-    font-weight: 700;
+  .drawer-cta.secondary:hover {
+    background: var(--gold-tint);
+    border-color: var(--gold-base);
   }
-  .topbar-btn.primary:hover { box-shadow: 0 0 24px rgba(212,175,55,0.4); transform: scale(1.04); }
-
-  .notif-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--g400);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.5); }
-    50% { box-shadow: 0 0 0 6px rgba(212,175,55,0); }
+  .drawer-copy {
+    text-align: center;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-top: 8px;
   }
 
   /* ── CONTENT ── */
@@ -668,7 +814,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   /* ── STAT CARDS ── */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
 
@@ -1076,7 +1222,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
 
   /* ── RESPONSIVE ── */
   @media(max-width:1400px) {
-    .stats-row { grid-template-columns:repeat(3,1fr); }
+    .stats-row { grid-template-columns:repeat(2,1fr); }
   }
   @media(max-width:1100px) {
     .stats-row { grid-template-columns:repeat(2,1fr); }
@@ -1084,11 +1230,23 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
     .bottom-grid { grid-template-columns:1fr; }
   }
 
+  @media (max-width: 1024px) {
+    header { grid-template-columns: auto 1fr auto; padding: 0 28px; gap: 20px; }
+  }
+  @media (max-width: 900px) {
+    header { padding: 0 20px; grid-template-columns: 1fr auto; }
+    header > nav { display: none; }
+    .logout-corner { display: none; } /* mobile → Déconnexion dans le drawer */
+    #burger-trigger { display: inline-flex; }
+  }
+  @media (max-width: 600px) {
+    header { padding: 0 16px; height: 64px; }
+    .logo { font-size: 0.95rem; letter-spacing: 2px; }
+    .icon-btn { width: 34px; height: 34px; }
+    .main { padding-top: 64px; }
+  }
+
   @media(max-width:768px) {
-    .sidebar { transform:translateX(-100%); }
-    .sidebar.open { transform:translateX(0); }
-    .main { margin-left:0; }
-    .topbar { padding:0 20px; }
     .content { padding:20px; }
     .stats-row { grid-template-columns:1fr 1fr; }
     .welcome-banner { flex-direction:column; gap:20px; text-align:center; }
@@ -1099,7 +1257,6 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
   .stat-card:nth-child(2) { animation: fadeUp 0.6s var(--ease) 0.22s both; }
   .stat-card:nth-child(3) { animation: fadeUp 0.6s var(--ease) 0.29s both; }
   .stat-card:nth-child(4) { animation: fadeUp 0.6s var(--ease) 0.36s both; }
-  .stat-card:nth-child(5) { animation: fadeUp 0.6s var(--ease) 0.43s both; }
 </style>
 </head>
 <body>
@@ -1111,89 +1268,96 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
 <div style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#28a745;color:#fff;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;border:1px solid #1e7e34;animation:fadeOut 4s forwards;"><?= htmlspecialchars($flash_success) ?></div>
 <?php endif; ?>
 
+<!-- ════ HEADER (même header que index.php) ════ -->
+<header>
+  <a href="index.php" class="logo">HESTIM</a>
+
+  <nav>
+    <ul>
+      <li><a href="index.php">Home</a></li>
+      <li><a href="rules.php">Rules</a></li>
+      <li><a href="game.php" class="btn-play">▶ Play</a></li>
+      <li><a href="classement.php">Classement</a></li>
+      <li><a href="aboutus.php">About Us</a></li>
+    </ul>
+  </nav>
+
+  <div class="header-right">
+    <button id="theme-toggle" class="icon-btn" aria-label="Basculer le thème" type="button">
+      <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+      </svg>
+      <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+
+    <button id="burger-trigger" class="icon-btn" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobile-menu" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ════ MOBILE DRAWER ════ -->
+<div id="mobile-menu" aria-hidden="true">
+  <div id="mobile-menu-backdrop"></div>
+  <aside id="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="Menu principal">
+    <div class="drawer-header">
+      <span class="logo">HESTIM</span>
+      <button id="burger-close" class="icon-btn" aria-label="Fermer le menu" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="drawer-nav">
+      <span class="drawer-section-label">Navigation</span>
+
+      <a href="index.php" data-close class="drawer-link">
+        <span>Home</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+      <a href="rules.php" data-close class="drawer-link">
+        <span>Rules</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+      <a href="classement.php" data-close class="drawer-link">
+        <span>Classement</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+      <a href="aboutus.php" data-close class="drawer-link">
+        <span>About Us</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </nav>
+
+    <div class="drawer-footer">
+      <a href="game.php" data-close class="drawer-cta primary">
+        ▶ Jouer
+      </a>
+      <a href="logout.php" data-close class="drawer-cta secondary">Déconnexion</a>
+      <p class="drawer-copy">&copy; 2025 &middot; HESTIM</p>
+    </div>
+  </aside>
+</div>
+
+<!-- ════ DÉCONNEXION (discrète, bas gauche) ════ -->
+<a href="logout.php" class="logout-corner">↩ Déconnexion</a>
+
 <!-- CUSTOM CURSOR -->
 <div id="cursor"></div>
 <div id="cursor-ring"></div>
 
-<!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-logo">
-    <span class="logo-text">HESTIM</span>
-    <span class="logo-sub">Champion Arena</span>
-  </div>
-
-  <div class="nav-section">
-    <span class="nav-label">Menu</span>
-    <a class="nav-item active" href="#">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
-    </a>
-    <a class="nav-item" href="game.php">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      Jouer
-      <span class="nav-badge">LIVE</span>
-    </a>
-    <a class="nav-item" href="#">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
-      Classement
-    </a>
-    <a class="nav-item" href="#">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-      Historique
-    </a>
-    <a class="nav-item" href="rules.php">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-      Règles
-    </a>
-  </div>
-
-  <div class="nav-section">
-    <span class="nav-label">Paramètres</span>
-    <a class="nav-item" href="aboutus.php">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      À propos
-    </a>
-    <a class="nav-item" href="#">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M20 12h2M2 12h2M12 20v2M12 2v2"/></svg>
-      Paramètres
-    </a>
-  </div>
-
-  <div class="sidebar-profile">
-    <div class="profile-mini" onclick="document.querySelector('.profile-card').scrollIntoView({behavior:'smooth'})">
-      <div class="avatar-sm">
-        <?php if ($user['profile_pic']): ?>
-          <img src="uploads/<?= htmlspecialchars($user['profile_pic']) ?>" alt="avatar">
-        <?php else: ?>
-          <?= strtoupper(substr($user['username'], 0, 1)) ?>
-        <?php endif; ?>
-      </div>
-      <div class="profile-mini-info">
-        <div class="profile-mini-name"><?= htmlspecialchars($user['username']) ?></div>
-        <div class="profile-mini-rank">⭐ Rang #<?= $global_rank ?></div>
-      </div>
-      <div class="profile-mini-dots">···</div>
-    </div>
-  </div>
-</aside>
 
 <!-- ═══ MAIN ═══ -->
 <div class="main">
-
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <button onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none;background:none;border:none;color:var(--text2);cursor:pointer;padding:6px;" id="burger">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-      </button>
-      <span class="topbar-title">Champion Dashboard</span>
-    </div>
-    <div class="topbar-right">
-      <div class="notif-dot"></div>
-      <a href="index.php" class="topbar-btn">Home</a>
-      <a href="game.php" class="topbar-btn primary">⚔ Jouer</a>
-    </div>
-  </div>
 
   <!-- CONTENT -->
   <div class="content">
@@ -1229,12 +1393,6 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
         <div class="stat-change <?= $winrate_all >= 50 ? 'up' : 'down' ?>">
           <?= $winrate_all >= 50 ? '↑' : '↓' ?> <?= $winrate_all ?>% winrate
         </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">⚡</div>
-        <div class="stat-label">Temps moyen / réponse</div>
-        <div class="stat-value" id="cnt-kda"><?= round($avg_time, 1) ?>s</div>
-        <div class="stat-change neutral">Meilleure série : <?= $best_streak ?></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">💎</div>
@@ -1319,7 +1477,7 @@ $flash_success = $_SESSION['success'] ?? null; unset($_SESSION['success']);
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">Historique des Parties</div>
-            <span style="font-size:0.68rem;color:var(--g500);letter-spacing:1px;cursor:pointer;">Voir tout →</span>
+            <a href="historique.php" style="font-size:0.68rem;color:var(--g500);letter-spacing:1px;text-decoration:none;">Voir tout →</a>
           </div>
           <div class="matches">
             <?php if (empty($history)): ?>
@@ -1494,14 +1652,11 @@ document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; cur.st
   ring.style.left=rx+'px'; ring.style.top=ry+'px';
   requestAnimationFrame(animRing);
 })();
-document.querySelectorAll('a,button,.nav-item,.tab').forEach(el=>{
+document.querySelectorAll('a,button,.tab').forEach(el=>{
   el.addEventListener('mouseenter',()=>{ cur.style.width='16px'; cur.style.height='16px'; ring.style.width='48px'; ring.style.height='48px'; ring.style.opacity='0.4'; });
   el.addEventListener('mouseleave',()=>{ cur.style.width='10px'; cur.style.height='10px'; ring.style.width='32px'; ring.style.height='32px'; ring.style.opacity='1'; });
 });
 
-/* ── BURGER MENU ── */
-if(window.innerWidth<=768) document.getElementById('burger').style.display='block';
-window.addEventListener('resize',()=>{ document.getElementById('burger').style.display=window.innerWidth<=768?'block':'none'; });
 
 /* ── COUNTER ANIMATION ── */
 function animCount(el, target, duration, decimals=0, suffix='') {
@@ -1514,8 +1669,8 @@ function animCount(el, target, duration, decimals=0, suffix='') {
   },16);
 }
 setTimeout(()=>{
-  animCount(document.getElementById('cnt-games'), <?= $total_games ?>, 1200);
-  animCount(document.getElementById('cnt-wins'),  <?= $victories ?>, 1200);
+  animCount(document.getElementById('cnt-games'), <?= $total_games_all ?>, 1200);
+  animCount(document.getElementById('cnt-wins'),  <?= $victories_all ?>, 1200);
   animCount(document.getElementById('cnt-elo'),   <?= $user_elo ?>, 1400);
 },300);
 
@@ -1672,7 +1827,7 @@ const radarLabels = <?= json_encode(count($cat_labels) > 0 ? $cat_labels : ['His
 const radarData   = <?= json_encode(count($cat_values) > 0 ? $cat_values : [0,0,0,0,0,0]) ?>;
 const avgLine     = new Array(radarLabels.length).fill(50); // ligne de référence à 50%
 
-new Chart(radarCtx,{
+const radarChart = new Chart(radarCtx,{
   type:'radar',
   data:{
     labels: radarLabels,
@@ -1715,6 +1870,93 @@ new Chart(radarCtx,{
     }
   }
 });
+
+/* ── THÈME CLAIR/SOMBRE + adaptation des graphs ── */
+function themeColors(){
+  const light = document.documentElement.classList.contains('light');
+  return {
+    text:        light ? 'rgba(26,20,8,0.62)'   : 'rgba(240,232,204,0.5)',
+    textSoft:    light ? 'rgba(26,20,8,0.5)'    : 'rgba(240,232,204,0.4)',
+    grid:        light ? 'rgba(138,110,47,0.14)': 'rgba(212,175,55,0.06)',
+    gridR:       light ? 'rgba(138,110,47,0.2)' : 'rgba(212,175,55,0.1)',
+    pointBorder: light ? '#ffffff'              : '#060606',
+    tipBg:       light ? 'rgba(255,255,255,0.97)':'rgba(13,13,13,0.95)',
+    tipTitle:    light ? '#1a1408'              : '#f0e8cc',
+    tipBody:     light ? 'rgba(26,20,8,0.7)'    : 'rgba(240,232,204,0.7)',
+    blueTick:    light ? 'rgba(60,110,170,0.85)': 'rgba(85,153,221,0.6)',
+  };
+}
+function applyChartTheme(){
+  const c = themeColors();
+  Chart.defaults.color = c.text;
+  if (typeof perfChart !== 'undefined' && perfChart){
+    const o = perfChart.options;
+    o.plugins.legend.labels.color = c.text;
+    o.plugins.tooltip.backgroundColor = c.tipBg;
+    o.plugins.tooltip.titleColor = c.tipTitle;
+    o.plugins.tooltip.bodyColor  = c.tipBody;
+    o.scales.x.grid.color = c.grid;  o.scales.x.ticks.color = c.textSoft;
+    o.scales.y.grid.color = c.grid;  o.scales.y.ticks.color = c.textSoft;
+    o.scales.y1.ticks.color = c.blueTick;
+    perfChart.data.datasets[0].pointBorderColor = c.pointBorder;
+    perfChart.data.datasets[1].pointBorderColor = c.pointBorder;
+    perfChart.update('none');
+  }
+  if (typeof radarChart !== 'undefined' && radarChart){
+    const o = radarChart.options;
+    o.plugins.legend.labels.color = c.text;
+    o.scales.r.grid.color        = c.gridR;
+    o.scales.r.angleLines.color  = c.gridR;
+    o.scales.r.pointLabels.color = c.text;
+    radarChart.data.datasets[0].pointBorderColor = c.pointBorder;
+    radarChart.update('none');
+  }
+}
+window.applyChartTheme = applyChartTheme;
+applyChartTheme();
+
+(function(){
+  const root = document.documentElement;
+  const toggle = document.getElementById('theme-toggle');
+  if(!toggle) return;
+  toggle.addEventListener('click', ()=>{
+    root.classList.add('theme-transitioning');
+    const isLight = root.classList.toggle('light');
+    try{ localStorage.setItem('qpc-theme', isLight ? 'light' : 'dark'); }catch(e){}
+    applyChartTheme();
+    setTimeout(()=>root.classList.remove('theme-transitioning'), 300);
+  });
+})();
+
+/* ── BURGER DRAWER (même comportement que index.php) ── */
+(function () {
+  const trigger  = document.getElementById('burger-trigger');
+  const closeBtn = document.getElementById('burger-close');
+  const menu     = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-menu-backdrop');
+  if (!trigger || !menu) return;
+
+  function openMenu() {
+    menu.classList.add('is-open');
+    menu.setAttribute('aria-hidden', 'false');
+    trigger.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu() {
+    menu.classList.remove('is-open');
+    menu.setAttribute('aria-hidden', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  trigger.addEventListener('click', openMenu);
+  closeBtn.addEventListener('click', closeMenu);
+  backdrop.addEventListener('click', closeMenu);
+  menu.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.classList.contains('is-open')) closeMenu();
+  });
+})();
 </script>
 </body>
 </html>

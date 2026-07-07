@@ -2,23 +2,28 @@
 require_once __DIR__ . '/csrf.php';
 require "db.php"; // logError() défini ici
 
+// ── Redirection avec erreur (affichée inline sur connexion.php) ──
+function redirect_error($msg) {
+    $_SESSION['error']        = $msg;
+    $_SESSION['error_form']   = 'login';
+    $_SESSION['old_username'] = trim($_POST['username'] ?? '');
+    header("Location: connexion.php");
+    exit;
+}
+
 // ============================================================
 // Protection CSRF
 // ============================================================
 if (!csrf_verify()) {
     logError("login.php - CSRF token invalide");
-    $_SESSION['error'] = "Session expirée, veuillez réessayer.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Session expirée, veuillez réessayer.");
 }
 
 // ============================================================
 // Vérification des champs
 // ============================================================
 if (empty($_POST['username']) || empty($_POST['password'])) {
-    $_SESSION['error'] = "Veuillez remplir tous les champs.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Veuillez remplir tous les champs.");
 }
 
 $username = trim($_POST['username']);
@@ -31,9 +36,7 @@ $stmt = $conn->prepare("SELECT id, password FROM users WHERE username = ?");
 
 if (!$stmt) {
     logError("login.php - prepare() failed: " . $conn->error);
-    $_SESSION['error'] = "Une erreur est survenue. Réessayez.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Une erreur est survenue. Réessayez.");
 }
 
 $stmt->bind_param("s", $username);
@@ -86,9 +89,7 @@ if ($result->num_rows === 1) {
         $f = $conn->prepare("INSERT INTO funnel_analytics (user_id, etape) VALUES (NULL, 'login_echoue')");
         if ($f) $f->execute();
 
-        $_SESSION['error'] = "Identifiants incorrects.";
-        header("Location: connexion.php");
-        exit;
+        redirect_error("Identifiants incorrects.");
     }
 
 } else {
@@ -100,8 +101,6 @@ if ($result->num_rows === 1) {
     $f = $conn->prepare("INSERT INTO funnel_analytics (user_id, etape) VALUES (NULL, 'login_echoue')");
     if ($f) $f->execute();
 
-    $_SESSION['error'] = "Identifiants incorrects.";
-    header("Location: connexion.php");
-    exit;
+    redirect_error("Identifiants incorrects.");
 }
 ?>

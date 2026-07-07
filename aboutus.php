@@ -1554,7 +1554,6 @@ html.light .scene .scene-headline .l2 {
 .scene.in-view .scene-indicator    { opacity: 1; transform: translateY(0); transition-delay: 0.70s; }
 
 </style>
-<base target="_blank">
 </head>
 <body>
 <!-- ════ FOND GLOBAL : fumée gold animée ════ -->

@@ -1,4 +1,26 @@
-<?php require_once __DIR__ . '/csrf.php'; ?>
+<?php
+require_once __DIR__ . '/csrf.php';
+require "db.php";
+
+// Récup user pour le header partagé (identique à game.php)
+$user_id  = $_SESSION['user_id'] ?? null;
+$username = null;
+$elo      = 1200;
+
+if ($user_id) {
+    $stmt = $conn->prepare("SELECT username FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $u = $stmt->get_result()->fetch_assoc();
+    if ($u) $username = $u['username'];
+
+    $stmt2 = $conn->prepare("SELECT elo FROM player_stats WHERE user_id = ?");
+    $stmt2->bind_param("i", $user_id);
+    $stmt2->execute();
+    $row = $stmt2->get_result()->fetch_assoc();
+    if ($row && isset($row['elo'])) $elo = (int)$row['elo'];
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -556,11 +578,22 @@ body::before {
     z-index:500;
     display:flex;
     flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:32px;
-    padding:32px;
+    align-items:stretch;          /* top-bar full-width */
+    justify-content:flex-start;
+    gap:0;                        /* le gap est dans .start-screen-inner */
+    padding:0;                    /* le padding est dans .start-screen-inner */
+    overflow-y:auto;
+    overflow-x:hidden;
     transition:opacity .5s, transform .5s;
+}
+.start-screen-inner {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+    padding:32px 24px 60px;
+    width:100%;
+    flex:1;
 }
 .screen.hidden {
     opacity:0;
@@ -570,36 +603,38 @@ body::before {
 
 .start-title {
     font-family:'Cinzel Decorative', serif;
-    font-size:clamp(22px, 4vw, 36px);
+    font-size:clamp(20px, 3.2vw, 30px);   /* avant : 22-36px, trop gros en desktop */
     color:var(--gold);
     text-align:center;
-    letter-spacing:3px;
-    line-height:1.4;
+    letter-spacing:2.5px;
+    line-height:1.35;
+    margin-top:4px;
 }
 .start-sub {
-    font-size:14px;
+    font-size:13px;                        /* avant : 14px */
     color:var(--text2);
     text-align:center;
-    max-width:480px;
-    line-height:1.8;
+    max-width:460px;
+    line-height:1.7;
 }
 
 /* Note : .mode-grid / .mode-card / .cat-grid / .cat-chip retirés
    (remplacés par .training-cat-grid / .training-cat-card en fin de fichier) */
 
 .start-btn {
-    padding:16px 48px;
+    padding:14px 40px;              /* avant : 16px 48px */
     background:linear-gradient(135deg, var(--gold-dark), var(--gold));
     border:none;
     border-radius:40px;
     font-family:'Cinzel', serif;
-    font-size:15px;
+    font-size:13px;                 /* avant : 15px */
     font-weight:700;
     color:var(--on-gold);
     cursor:pointer;
     letter-spacing:2px;
     transition:all .3s;
     box-shadow:0 0 30px rgba(212,175,55,0.3);
+    margin-top:4px;
 }
 .start-btn:hover {
     transform:translateY(-3px);
@@ -622,13 +657,25 @@ body::before {
     z-index:500;
     display:flex;
     flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:28px;
-    padding:32px;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:0;
+    padding:0;
+    overflow-y:auto;
+    overflow-x:hidden;
     opacity:0;
     pointer-events:none;
     transition:opacity .5s;
+}
+.end-screen-inner {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:24px;
+    padding:40px 24px 60px;
+    width:100%;
+    flex:1;
+    justify-content:center;   /* centre verticalement quand il y a assez de place */
 }
 .end-screen.visible {
     opacity:1;
@@ -709,7 +756,7 @@ body::before {
     .bottom-bar { padding: 14px 22px; }
     .game-content { padding: 28px 16px; max-width: 700px; }
     .question-card { padding: 30px 28px; }
-    .start-screen-inner { padding: 0 24px; }
+    .start-screen-inner { padding: 28px 20px 50px; }
 }
 
 @media (max-width: 600px) {
@@ -737,10 +784,10 @@ body::before {
     .bottom-bar { padding: 12px 14px; gap: 8px; }
     .hint-btn, .abandon-btn { padding: 9px 14px; font-size: 11px; }
 
-    .start-screen-inner { padding: 0 16px; }
+    .start-screen-inner { padding: 22px 16px 40px; gap: 18px; }
     .start-btn { padding: 14px 32px; font-size: 13px; }
 
-    .end-screen { padding: 28px 16px; gap: 22px; }
+    .end-screen-inner { padding: 28px 16px 40px; gap: 20px; }
     .end-trophy { font-size: 56px; }
     .end-btn-primary, .end-btn-secondary { padding: 12px 28px; font-size: 12px; }
 
@@ -792,34 +839,34 @@ body::before {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 16px;
+    padding: 5px 14px;
     border: 1px solid var(--gold);
     background: var(--gold-dim);
     border-radius: 30px;
     font-family: 'Cinzel', serif;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     color: var(--gold-text);
-    letter-spacing: 2.5px;
+    letter-spacing: 2.2px;
     text-transform: uppercase;
-    margin-bottom: 22px;
+    margin-bottom: 6px;             /* avant : 22px — gap du parent gère l'espace */
 }
-.train-badge span { font-size: 14px; }
+.train-badge span { font-size: 13px; }
 
 .training-cat-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    gap: 12px;                      /* avant : 14px */
     width: 100%;
-    max-width: 780px;
-    margin-bottom: 36px;
+    max-width: 720px;               /* avant : 780px */
+    margin-bottom: 6px;             /* avant : 36px — géré par gap du parent */
 }
 
 .training-cat-card {
     background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: var(--r);
-    padding: 24px 18px;
+    padding: 18px 14px;             /* avant : 24px 18px */
     cursor: pointer;
     text-align: center;
     transition: border-color .25s, background .25s, transform .25s, box-shadow .25s;
@@ -861,37 +908,142 @@ body::before {
 }
 
 .tc-icon {
-    font-size: 34px;
-    margin-bottom: 10px;
+    font-size: 28px;                /* avant : 34px */
+    margin-bottom: 8px;
     line-height: 1;
     filter: drop-shadow(0 0 10px rgba(212,175,55,0.15));
 }
 .tc-name {
     font-family: 'Cinzel', serif;
-    font-size: 14px;
+    font-size: 13px;                /* avant : 14px */
     font-weight: 600;
     color: var(--text1);
     letter-spacing: .5px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     line-height: 1.2;
 }
 .tc-desc {
-    font-size: 11px;
+    font-size: 10.5px;              /* avant : 11px */
     color: var(--text3);
     letter-spacing: .2px;
-    line-height: 1.5;
+    line-height: 1.45;
 }
 
-.back-link {
-    margin-top: 22px;
-    color: var(--text3);
-    text-decoration: none;
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    transition: color .2s;
+/* ══════════════════════════════════════════════════
+   HEADER PARTAGÉ (identique à game.php)
+══════════════════════════════════════════════════ */
+.top-bar {
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.2rem 2rem;
+    z-index: 550;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background: var(--bar-bg);
+    border-bottom: 1px solid var(--border);
+    align-self: stretch;
+    width: 100%;
 }
-.back-link:hover { color: var(--gold-text); }
+.top-bar .back-link {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    transition: color 200ms;
+    margin: 0;
+    padding: 0;
+    text-transform: none;
+}
+.top-bar .back-link:hover { color: var(--gold-text); }
+
+.brand-logo {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 1.3rem;
+    color: var(--gold-text);
+    letter-spacing: 0.3em;
+}
+
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text2);
+    font-size: 0.85rem;
+}
+.user-chip strong { color: var(--gold-text); }
+
+/* ─── Theme toggle ─── */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text1);
+    cursor: pointer;
+    transition: border-color .2s, background .2s, color .2s, transform .15s;
+    margin-left: 1rem;
+    flex-shrink: 0;
+}
+.theme-toggle:hover {
+    border-color: var(--gold);
+    color: var(--gold-text);
+    background: rgba(212, 175, 55, 0.08);
+}
+.theme-toggle:active { transform: scale(0.95); }
+.theme-toggle svg { width: 15px; height: 15px; }
+.theme-toggle .theme-moon { display: none; }
+.theme-toggle .theme-sun  { display: block; }
+html.light .theme-toggle .theme-moon { display: block; }
+html.light .theme-toggle .theme-sun  { display: none; }
+
+/* Bouton retour compact dans la topbar du JEU (in-game) */
+.topbar-back {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: color .2s, background .2s;
+    margin-right: 10px;
+}
+.topbar-back:hover { color: var(--gold-text); background: var(--gold-dim); }
+.topbar-left { display: flex; align-items: center; }
+/* Theme toggle version compacte dans la topbar du jeu */
+.topbar .theme-toggle { width: 30px; height: 30px; margin-left: 8px; }
+.topbar .theme-toggle svg { width: 13px; height: 13px; }
+
+/* Responsive header partagé */
+@media (max-width: 800px) {
+    .top-bar { padding: 1rem 1.25rem; }
+    .brand-logo { font-size: 1.15rem; letter-spacing: 0.25em; }
+    .user-chip { font-size: 0.8rem; gap: 0.4rem; }
+}
+@media (max-width: 480px) {
+    .top-bar { padding: 0.75rem 0.85rem; }
+    .top-bar .back-link { font-size: 0.8rem; }
+    .brand-logo { font-size: 1rem; letter-spacing: 0.2em; }
+    .user-chip { font-size: 0.7rem; }
+    .theme-toggle { width: 32px; height: 32px; margin-left: 0.6rem; }
+    .theme-toggle svg { width: 13px; height: 13px; }
+    .topbar-back { font-size: 11px; padding: 5px 8px; margin-right: 6px; }
+}
+@media (max-width: 360px) {
+    .top-bar { padding: 0.65rem 0.7rem; }
+    .user-chip span:not(:first-child) { display: none; }
+}
+
+/* ─── Ancien back-link en bas de start-screen : SUPPRIMÉ ─── */
 
 /* Responsive training cards */
 @media (max-width: 900px) {
@@ -919,60 +1071,90 @@ body::before {
 
 <!-- ═══ START SCREEN ═══ -->
 <div class="screen" id="start-screen">
-    <div class="train-badge"><span>🎯</span> Mode Entraînement</div>
-    <div class="start-title">Choisissez votre<br>terrain d'entraînement</div>
-    <p class="start-sub">Sélectionnez une catégorie pour commencer. Aucun classement, aucune pression — juste de la pratique pour progresser.</p>
 
-    <div class="training-cat-grid">
-        <div class="training-cat-card selected" data-cat="all" onclick="selectCat(this)">
-            <div class="tc-icon">🎲</div>
-            <div class="tc-name">Toutes catégories</div>
-            <div class="tc-desc">Mélange de toutes les disciplines</div>
+    <!-- Header partagé QPC (retour → game.php + toggle theme) -->
+    <header class="top-bar">
+        <a href="game.php" class="back-link">← Retour</a>
+
+        <div style="display:flex; align-items:center;">
+            <div class="brand-logo">QPC</div>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Basculer le thème" type="button">
+                <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                </svg>
+                <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
         </div>
-        <div class="training-cat-card" data-cat="sciences" onclick="selectCat(this)">
-            <div class="tc-icon">🔬</div>
-            <div class="tc-name">Sciences &amp; Nature</div>
-            <div class="tc-desc">Physique, chimie, biologie</div>
+
+        <div class="user-chip">
+            <?php if ($user_id): ?>
+                <span><?= htmlspecialchars($username) ?></span>
+                <span>·</span>
+                <span>ELO <strong><?= (int)$elo ?></strong></span>
+            <?php else: ?>
+                <a href="connexion.php" class="back-link">Connexion</a>
+            <?php endif; ?>
         </div>
-        <div class="training-cat-card" data-cat="informatique" onclick="selectCat(this)">
-            <div class="tc-icon">💻</div>
-            <div class="tc-name">Informatique</div>
-            <div class="tc-desc">Tech, code, algorithmes</div>
+    </header>
+
+    <div class="start-screen-inner">
+        <div class="train-badge"><span>🎯</span> Mode Entraînement</div>
+        <div class="start-title">Choisissez votre<br>terrain d'entraînement</div>
+        <p class="start-sub">Sélectionnez une catégorie pour commencer. Aucun classement, aucune pression — juste de la pratique pour progresser.</p>
+
+        <div class="training-cat-grid">
+            <div class="training-cat-card selected" data-cat="all" onclick="selectCat(this)">
+                <div class="tc-icon">🎲</div>
+                <div class="tc-name">Toutes catégories</div>
+                <div class="tc-desc">Mélange de toutes les disciplines</div>
+            </div>
+            <div class="training-cat-card" data-cat="sciences" onclick="selectCat(this)">
+                <div class="tc-icon">🔬</div>
+                <div class="tc-name">Sciences &amp; Nature</div>
+                <div class="tc-desc">Physique, chimie, biologie</div>
+            </div>
+            <div class="training-cat-card" data-cat="informatique" onclick="selectCat(this)">
+                <div class="tc-icon">💻</div>
+                <div class="tc-name">Informatique</div>
+                <div class="tc-desc">Tech, code, algorithmes</div>
+            </div>
+            <div class="training-cat-card" data-cat="histoire" onclick="selectCat(this)">
+                <div class="tc-icon">🏛️</div>
+                <div class="tc-name">Histoire</div>
+                <div class="tc-desc">Civilisations, dates, guerres</div>
+            </div>
+            <div class="training-cat-card" data-cat="geographie" onclick="selectCat(this)">
+                <div class="tc-icon">🌍</div>
+                <div class="tc-name">Géographie</div>
+                <div class="tc-desc">Pays, capitales, continents</div>
+            </div>
+            <div class="training-cat-card" data-cat="mathematiques" onclick="selectCat(this)">
+                <div class="tc-icon">📐</div>
+                <div class="tc-name">Mathématiques</div>
+                <div class="tc-desc">Calcul, géométrie, logique</div>
+            </div>
+            <div class="training-cat-card" data-cat="culture_generale" onclick="selectCat(this)">
+                <div class="tc-icon">🧠</div>
+                <div class="tc-name">Culture Générale</div>
+                <div class="tc-desc">Connaissances variées</div>
+            </div>
+            <div class="training-cat-card" data-cat="sport" onclick="selectCat(this)">
+                <div class="tc-icon">⚽</div>
+                <div class="tc-name">Sport</div>
+                <div class="tc-desc">Compétitions, joueurs, records</div>
+            </div>
+            <div class="training-cat-card" data-cat="art_litterature" onclick="selectCat(this)">
+                <div class="tc-icon">🎨</div>
+                <div class="tc-name">Art &amp; Littérature</div>
+                <div class="tc-desc">Œuvres, peintres, écrivains</div>
+            </div>
         </div>
-        <div class="training-cat-card" data-cat="histoire" onclick="selectCat(this)">
-            <div class="tc-icon">🏛️</div>
-            <div class="tc-name">Histoire</div>
-            <div class="tc-desc">Civilisations, dates, guerres</div>
-        </div>
-        <div class="training-cat-card" data-cat="geographie" onclick="selectCat(this)">
-            <div class="tc-icon">🌍</div>
-            <div class="tc-name">Géographie</div>
-            <div class="tc-desc">Pays, capitales, continents</div>
-        </div>
-        <div class="training-cat-card" data-cat="mathematiques" onclick="selectCat(this)">
-            <div class="tc-icon">📐</div>
-            <div class="tc-name">Mathématiques</div>
-            <div class="tc-desc">Calcul, géométrie, logique</div>
-        </div>
-        <div class="training-cat-card" data-cat="culture_generale" onclick="selectCat(this)">
-            <div class="tc-icon">🧠</div>
-            <div class="tc-name">Culture Générale</div>
-            <div class="tc-desc">Connaissances variées</div>
-        </div>
-        <div class="training-cat-card" data-cat="sport" onclick="selectCat(this)">
-            <div class="tc-icon">⚽</div>
-            <div class="tc-name">Sport</div>
-            <div class="tc-desc">Compétitions, joueurs, records</div>
-        </div>
-        <div class="training-cat-card" data-cat="art_litterature" onclick="selectCat(this)">
-            <div class="tc-icon">🎨</div>
-            <div class="tc-name">Art &amp; Littérature</div>
-            <div class="tc-desc">Œuvres, peintres, écrivains</div>
-        </div>
+
+        <button class="start-btn" onclick="startGame()">COMMENCER L'ENTRAÎNEMENT ▶</button>
     </div>
-
-    <button class="start-btn" onclick="startGame()">COMMENCER L'ENTRAÎNEMENT ▶</button>
-    <a href="dashboard.php" class="back-link">← Retour au dashboard</a>
 </div>
 
 <!-- ═══ GAME WRAP ═══ -->
@@ -980,7 +1162,19 @@ body::before {
 
     <!-- TOP BAR -->
     <div class="topbar">
-        <a href="dashboard.php" class="topbar-logo">QPC</a>
+        <div class="topbar-left">
+            <a href="game.php" class="topbar-back" title="Retour au hub">← Retour</a>
+            <a href="dashboard.php" class="topbar-logo">QPC</a>
+            <button id="theme-toggle-game" class="theme-toggle" aria-label="Basculer le thème" type="button">
+                <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                </svg>
+                <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </div>
         <div class="topbar-meta">
             <div class="meta-item">
                 <span class="meta-label">Question</span>
@@ -1070,28 +1264,59 @@ body::before {
 
 <!-- ═══ END SCREEN ═══ -->
 <div class="end-screen" id="end-screen">
-    <div class="end-title" id="end-title">Entraînement terminé !</div>
-    <div>
-        <div class="end-score-big" id="end-score">0</div>
-        <div class="end-score-label">Points</div>
-    </div>
-    <div class="end-stats">
-        <div class="end-stat">
-            <div class="end-stat-val" id="end-correct">0</div>
-            <div class="end-stat-label">Bonnes réponses</div>
+
+    <!-- Header partagé QPC (identique à start-screen) -->
+    <header class="top-bar">
+        <a href="game.php" class="back-link">← Retour</a>
+
+        <div style="display:flex; align-items:center;">
+            <div class="brand-logo">QPC</div>
+            <button id="theme-toggle-end" class="theme-toggle" aria-label="Basculer le thème" type="button">
+                <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                </svg>
+                <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
         </div>
-        <div class="end-stat">
-            <div class="end-stat-val" id="end-accuracy">0%</div>
-            <div class="end-stat-label">Précision</div>
+
+        <div class="user-chip">
+            <?php if ($user_id): ?>
+                <span><?= htmlspecialchars($username) ?></span>
+                <span>·</span>
+                <span>ELO <strong><?= (int)$elo ?></strong></span>
+            <?php else: ?>
+                <a href="connexion.php" class="back-link">Connexion</a>
+            <?php endif; ?>
         </div>
-        <div class="end-stat">
-            <div class="end-stat-val" id="end-time">0s</div>
-            <div class="end-stat-label">Temps moyen</div>
+    </header>
+
+    <div class="end-screen-inner">
+        <div class="end-title" id="end-title">Entraînement terminé !</div>
+        <div>
+            <div class="end-score-big" id="end-score">0</div>
+            <div class="end-score-label">Points</div>
         </div>
-    </div>
-    <div class="end-btns">
-        <button class="end-btn-primary" onclick="location.reload()">▶ Nouvel entraînement</button>
-        <button class="end-btn-secondary" onclick="location.href='dashboard.php'">Dashboard</button>
+        <div class="end-stats">
+            <div class="end-stat">
+                <div class="end-stat-val" id="end-correct">0</div>
+                <div class="end-stat-label">Bonnes réponses</div>
+            </div>
+            <div class="end-stat">
+                <div class="end-stat-val" id="end-accuracy">0%</div>
+                <div class="end-stat-label">Précision</div>
+            </div>
+            <div class="end-stat">
+                <div class="end-stat-val" id="end-time">0s</div>
+                <div class="end-stat-label">Temps moyen</div>
+            </div>
+        </div>
+        <div class="end-btns">
+            <button class="end-btn-primary" onclick="location.reload()">▶ Nouvel entraînement</button>
+            <button class="end-btn-secondary" onclick="location.href='game.php'">Retour au hub</button>
+        </div>
     </div>
 </div>
 
@@ -1587,6 +1812,24 @@ function sendTrainingResults(abandoned, questionsAsked, avgTime) {
 window.addEventListener('DOMContentLoaded', async () => {
     await loadQuestionsFromJSON();
 });
+
+// ══════════════════════════════════════════════════
+// Toggle thème dark/light (identique à game.php)
+// Gère les 3 boutons : #theme-toggle (start), #theme-toggle-end (fin), #theme-toggle-game (in-game)
+// ══════════════════════════════════════════════════
+(function () {
+    const root = document.documentElement;
+    const toggles = document.querySelectorAll('#theme-toggle, #theme-toggle-end, #theme-toggle-game');
+    if (!toggles.length) return;
+    toggles.forEach(btn => {
+        btn.addEventListener('click', () => {
+            root.classList.add('theme-transitioning');
+            const isLight = root.classList.toggle('light');
+            try { localStorage.setItem('qpc-theme', isLight ? 'light' : 'dark'); } catch (e) {}
+            setTimeout(() => root.classList.remove('theme-transitioning'), 300);
+        });
+    });
+})();
 </script>
 </body>
 </html>

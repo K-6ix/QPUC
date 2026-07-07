@@ -1435,3 +1435,77 @@ html.light .slide-confirm-track { color: #c0392b; }
     color: #ff7b7b;
     font-weight: 700;
 }
+
+
+/* ══════════════════════════════════════════════════
+   BADGE DIFFICULTÉ (adaptatif — calibré ELO, +1 cran/manche)
+══════════════════════════════════════════════════ */
+.champ-diff-badge {
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.champ-diff-badge:empty { display: none; }
+.champ-diff-badge.facile    { background: rgba(76,175,120,0.15); color: #4caf78; border: 1px solid rgba(76,175,120,0.35); }
+.champ-diff-badge.moyen     { background: var(--gold-tint);      color: var(--gold-text); border: 1px solid rgba(212,175,55,0.4); }
+.champ-diff-badge.difficile { background: rgba(224,85,85,0.15);  color: #e05555; border: 1px solid rgba(224,85,85,0.35); }
+
+/* ══════════════════════════════════════════════════
+   ÉCRAN FINAL — verdict perso + classement de la partie
+══════════════════════════════════════════════════ */
+.final-title.is-low { color: var(--text-dim, #b8b4a4); text-shadow: none; }
+
+.final-mychip {
+    display: inline-block; margin: 6px auto 0;
+    font-family: 'Cinzel', serif; font-weight: 900; font-size: 1rem;
+    padding: 0.4rem 1.1rem; border-radius: 24px;
+}
+.final-mychip.up   { color: #4caf78; background: rgba(76,175,120,0.12); border: 1px solid rgba(76,175,120,0.35); }
+.final-mychip.down { color: #e05555; background: rgba(224,85,85,0.12);  border: 1px solid rgba(224,85,85,0.35); }
+.final-mychip.flat { color: var(--text-dim, #b8b4a4); background: rgba(180,180,180,0.08); border: 1px solid rgba(180,180,180,0.25); }
+
+/* ── Lignes du classement ── */
+.crow {
+    display: grid;
+    grid-template-columns: 42px 1fr auto auto;
+    gap: 12px; align-items: center;
+    padding: 0.7rem 1rem; margin-bottom: 0.45rem;
+    background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border: 1px solid rgba(212,175,55,0.14); border-radius: 12px;
+    opacity: 0; transform: translateY(14px);
+    animation: crow-in .5s cubic-bezier(.2,.9,.3,1) forwards;
+    text-align: left;
+}
+@keyframes crow-in { to { opacity: 1; transform: none; } }
+.crow.rank-1 { border-color: rgba(212,175,55,0.55); background: linear-gradient(160deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); }
+.crow.is-me  { box-shadow: 0 0 22px rgba(212,175,55,0.18); border-color: var(--gold, #d4af37); }
+
+.crow-medal { font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.3rem; text-align: center; color: var(--text-dim, #b8b4a4); }
+.crow.rank-1 .crow-medal, .crow.rank-2 .crow-medal, .crow.rank-3 .crow-medal { font-size: 1.5rem; }
+
+.crow-id   { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crow-name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crow-metag {
+    font-size: 0.55rem; letter-spacing: 1.5px; font-weight: 700;
+    color: #060606; background: var(--gold, #d4af37);
+    padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: middle;
+}
+.crow-sub { font-size: 0.68rem; letter-spacing: 1px; color: var(--text-dim, #888); text-transform: uppercase; }
+
+.crow-pts { font-family: 'Cinzel', serif; font-weight: 700; font-size: 0.85rem; color: var(--gold, #d4af37); white-space: nowrap; }
+.crow-elo { font-family: 'Cinzel', serif; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
+.crow-elo.positive { color: #4caf78; }
+.crow-elo.negative { color: #e05555; }
+.crow-elo.neutral  { color: var(--text-dim, #b8b4a4); }
+
+@media (max-width: 520px) {
+    .crow { grid-template-columns: 34px 1fr auto; }
+    .crow-pts { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .crow { animation-duration: .001s !important; }
+}

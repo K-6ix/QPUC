@@ -122,6 +122,35 @@
             100% { opacity:0; visibility:hidden; }
         }
 
+        /* ═══ Erreurs / succès inline dans les formulaires ═══ */
+        .form-error,
+        .form-success {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+            margin-top:16px;
+            padding:11px 14px;
+            border-radius:8px;
+            font-size:13px;
+            font-weight:600;
+            line-height:1.4;
+            text-align:center;
+        }
+        .form-error {
+            background:rgba(255,68,68,0.08);
+            border:1px solid rgba(255,68,68,0.45);
+            color:#ff6b6b;
+        }
+        .form-success {
+            background:rgba(40,167,69,0.10);
+            border:1px solid rgba(40,167,69,0.50);
+            color:#3ddc74;
+        }
+        .form-error i, .form-success i { font-size:17px; flex-shrink:0; }
+        html.light .form-error   { background:rgba(255,68,68,0.06); color:#d32f2f; }
+        html.light .form-success { background:rgba(40,167,69,0.08); color:#1e7e34; }
+
         /* ═══ Wrapper (desktop) ═══ */
         .wrapper {
             position:relative;
@@ -541,29 +570,36 @@
 <body>
 
 <?php
-// ✅ Affichage des messages flash (erreurs / succès)
-// session_start() est déjà appelé en haut du fichier
-if (!empty($_SESSION['error'])): ?>
-    <div class="flash-message error"><?= htmlspecialchars($_SESSION['error']) ?></div>
-    <?php unset($_SESSION['error']); ?>
-<?php endif; ?>
+// ✅ Messages flash (erreurs / succès) — affichés en inline dans les formulaires
+// session_start() est déjà appelé en haut du fichier (csrf.php)
+// login.php / signup.php doivent définir :
+//   $_SESSION['error'] ou $_SESSION['success']  → le message
+//   $_SESSION['error_form'] = 'login'|'signup'  → quel formulaire afficher
+//   $_SESSION['old_username'], $_SESSION['old_email'] → re-remplir les champs
+$flash_error   = $_SESSION['error']        ?? null; unset($_SESSION['error']);
+$flash_success = $_SESSION['success']      ?? null; unset($_SESSION['success']);
+$error_form    = $_SESSION['error_form']   ?? 'login'; unset($_SESSION['error_form']);
+$old_username  = $_SESSION['old_username'] ?? '';   unset($_SESSION['old_username']);
+$old_email     = $_SESSION['old_email']    ?? '';   unset($_SESSION['old_email']);
+?>
 
-<?php if (!empty($_SESSION['success'])): ?>
-    <div class="flash-message success"><?= htmlspecialchars($_SESSION['success']) ?></div>
-    <?php unset($_SESSION['success']); ?>
-<?php endif; ?>
-
-<div class="wrapper">
+<div class="wrapper<?= ($flash_error && $error_form === 'signup') ? ' active' : '' ?>">
     <span class="bg-animate"></span>
     <span class="bg-animate2"></span>
 
     <!-- FORMULAIRE LOGIN -->
     <div class="form-box login animation">
         <h2 style="--i:0; --j:18;" class="animation">Connexion</h2>
+        <?php if ($flash_error && $error_form === 'login'): ?>
+        <div class="form-error animation" style="--i:0; --j:18;"><i class='bx bx-error-circle'></i> <?= htmlspecialchars($flash_error) ?></div>
+        <?php endif; ?>
+        <?php if ($flash_success): ?>
+        <div class="form-success animation" style="--i:0; --j:18;"><i class='bx bx-check-circle'></i> <?= htmlspecialchars($flash_success) ?></div>
+        <?php endif; ?>
         <form action="login.php" method="POST">
             <?= csrf_field() ?>
             <div class="input-box animation" style="--i:1; --j:19;">
-                <input type="text" name="username" placeholder="" required>
+                <input type="text" name="username" placeholder="" value="<?= $error_form === 'login' ? htmlspecialchars($old_username) : '' ?>" required>
                 <label>Username</label>
                 <i class='bx bx-user bx-flip-horizontal'></i>
             </div>
@@ -590,15 +626,18 @@ if (!empty($_SESSION['error'])): ?>
     <!-- FORMULAIRE INSCRIPTION -->
     <div class="form-box nouveau">
         <h2 class="animation" style="--i:20; --j:0;">Nouveau ?</h2>
+        <?php if ($flash_error && $error_form === 'signup'): ?>
+        <div class="form-error animation" style="--i:20; --j:0;"><i class='bx bx-error-circle'></i> <?= htmlspecialchars($flash_error) ?></div>
+        <?php endif; ?>
         <form action="signup.php" method="POST">
             <?= csrf_field() ?>
             <div class="input-box animation" style="--i:21; --j:1;">
-                <input type="text" name="username" placeholder="" required>
+                <input type="text" name="username" placeholder="" value="<?= $error_form === 'signup' ? htmlspecialchars($old_username) : '' ?>" required>
                 <label>Username</label>
                 <i class='bx bx-user bx-flip-horizontal'></i>
             </div>
             <div class="input-box animation" style="--i:22; --j:2;">
-                <input type="email" name="email" placeholder="" required>
+                <input type="email" name="email" placeholder="" value="<?= htmlspecialchars($old_email) ?>" required>
                 <label>Email</label>
                 <i class='bx bx-envelope bx-flip-horizontal'></i>
             </div>
