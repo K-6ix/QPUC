@@ -139,6 +139,12 @@ function clearAllTimers(room) {
     // [M2]
     if (room.m2?.phaseTimer) clearTimeout(room.m2.phaseTimer);
     if (room.m2?.buzzTimer)  clearTimeout(room.m2.buzzTimer);
+    // [FIX] Timers de room + de déconnexion par joueur : sans ça, une room
+    // supprimée continue de logger des DISQUALIFIED fantômes 10s plus tard.
+    if (room.rejoinTimer) clearTimeout(room.rejoinTimer);
+    Object.values(room.players || {}).forEach(p => {
+        if (p.disconnectTimer) { clearTimeout(p.disconnectTimer); p.disconnectTimer = null; }
+    });
 }
 
 // ============================================================================
@@ -160,6 +166,9 @@ function startM1(roomCode) {
         maxQuestions: CONFIG.M1_MAX_QUESTIONS,
         questionTime: CONFIG.M1_QUESTION_TIME
     });
+    // [FIX ROOM_STATE] Tous les clients game.php reçoivent la liste fraîche
+    // des 4 joueurs (score 0, alive) → renderM1Players a de quoi afficher.
+    broadcastRoom(roomCode);
     setTimeout(() => nextM1Question(roomCode), 1500);
 }
 
@@ -2021,6 +2030,13 @@ io.on('connection', (socket) => {
         console.log(`[CHAMP_REJOIN] ${room.players[playerId].name} → ${code} (status: ${room.status})`);
         socket.emit('champ_room_joined', { code, playerId });
 
+        // [FIX ROOM_STATE] Toujours renvoyer la liste des joueurs au rejoin.
+        // Avant : game.php n'avait JAMAIS room_state dans le flux normal
+        // (lobby → redirect → rejoin → M1) → roomPlayers restait [] côté
+        // client → renderM1Players affichait 0 carte joueur.
+        // (server.js 1v1 fait pareil avec state_resync + game_state.)
+        socket.emit('room_state', getPublicRoom(room));
+
         // Si on est en awaiting_rejoin, on note ce joueur comme prêt
         if (room.status === 'awaiting_rejoin' && room.pendingRejoin) {
             room.pendingRejoin.add(playerId);
@@ -2042,12 +2058,10 @@ io.on('connection', (socket) => {
                     }
                 }, 1000);
             }
-        } else if (room.status === 'm1' || room.status === 'm2_categories' || room.status.startsWith('m2_') || room.status.startsWith('m3_')) {
-            // Reconnexion en pleine partie : envoyer l'état actuel
-            io.to(socket.id).emit('room_state', getPublicRoom(room));
-            // [TODO] Pour faire propre : renvoyer la question en cours.
-            // Pour l'instant le joueur va voir un écran vide jusqu'à la question suivante.
         }
+        // (room_state est déjà envoyé plus haut pour TOUS les statuts.)
+        // [TODO] Reconnexion en pleine partie : renvoyer aussi la question en
+        // cours. Pour l'instant le joueur voit un écran vide jusqu'à la suivante.
     });
 
     socket.on('m1_answer',          (data) => handleM1Answer(socket, data));
@@ -2079,6 +2093,18 @@ function handleLeave(socket, reason) {
     if (!room) return;
     const player = room.players[playerId];
     if (!player) return;
+
+    // [FIX SOCKET PÉRIMÉ] Le joueur s'est déjà reconnecté avec un AUTRE socket
+    // (ex : l'ancien socket du lobby meurt APRÈS le champ_rejoin de game.php,
+    // ce qui est fréquent — la détection de déconnexion peut prendre plusieurs
+    // secondes en prod). Sans ce garde-fou : faux "X a déconnecté", joueur
+    // disqualifié alors qu'il joue, flags disconnected fantômes qui déclenchent
+    // un cleanup de room alors que tout le monde est connecté.
+    // (server.js 1v1 a exactement la même protection dans son disconnect.)
+    if (player.socketId && player.socketId !== socket.id) {
+        console.log(`[STALE_SOCKET] ${player.name} : déco d'un ancien socket ignorée (${reason})`);
+        return;
+    }
 
     if (room.status === 'lobby') {
         delete room.players[playerId];
