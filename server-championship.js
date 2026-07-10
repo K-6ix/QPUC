@@ -1631,6 +1631,10 @@ function launchChampStartSequence(roomCode) {
             room.rejoinTimer = setTimeout(() => {
                 console.log(`[CHAMP] ${roomCode} : timeout rejoin, on lance M1 quand même`);
                 if (room.status === 'awaiting_rejoin') {
+                    // [DIAGNOSTIC] Qui est arrivé sur game.php, qui manque
+                    const arrived = [...(room.pendingRejoin || [])];
+                    const missing = Object.keys(room.players).filter(id => !arrived.includes(id));
+                    console.log(`[CHAMP] ${roomCode} : rejoints=[${arrived.join(', ') || 'aucun'}] manquants=[${missing.join(', ') || 'aucun'}]`);
                     const connected = Object.values(room.players).filter(p => !p.disconnected);
                     if (connected.length === 0) {
                         console.log(`[CLEANUP] ${roomCode} : rejoinTimer fired mais 0 joueur connecté, suppression`);
@@ -2004,10 +2008,14 @@ io.on('connection', (socket) => {
         if (!code || !playerId) return;
         const room = rooms[code];
         if (!room) {
+            console.log(`[CHAMP_REJOIN_FAIL] room ${code} introuvable (pid=${playerId})`);
             socket.emit('champ_error', { message: 'Room introuvable (peut-être terminée).' });
             return;
         }
         if (!room.players[playerId]) {
+            // [DIAGNOSTIC] Échec typique quand l'identité côté game.php ne
+            // matche pas celle du lobby (vieux JS en cache, storage perdu).
+            console.log(`[CHAMP_REJOIN_FAIL] ${code} : pid "${playerId}" inconnu — attendus: [${Object.keys(room.players).join(', ')}]`);
             socket.emit('champ_error', { message: 'Tu n\'es pas dans cette partie.' });
             return;
         }
