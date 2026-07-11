@@ -1358,10 +1358,11 @@ function saveChampionshipResults(room, suddenDeath) {
     if (!room || room._saved) return;
     room._saved = true; // éviter double-save
 
-    // ── Mode amical : on ne persiste rien en BDD (pas de delta ELO, pas de stats)
+    // ── Mode amical : on persiste le MATCH (historique + compteurs dashboard)
+    //    mais save_championship.php ne touchera ni l'ELO ni player_stats
+    //    (flag is_ranked=0 dans l'enveloppe signée).
     if (!room.isRanked) {
-        console.log(`[CHAMP AMICAL] ${room.code} terminé — pas de save BDD`);
-        return;
+        console.log(`[CHAMP AMICAL] ${room.code} terminé — enregistrement sans ELO ni stats classées`);
     }
 
     // Construire le ranking final (1er → 4ème)
@@ -1425,6 +1426,7 @@ function saveChampionshipResults(room, suddenDeath) {
         type:            'championship',
         room_code:       room.code,
         issued_at:       Date.now(),
+        is_ranked:       room.isRanked ? 1 : 0, // 0 = amical : match enregistré, ELO/stats intouchés
         sudden_death:    suddenDeath || false,
         total_questions: totalQ,
         ranking:         ranking,

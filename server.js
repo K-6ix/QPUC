@@ -601,6 +601,47 @@ function persistElo(room, winnerId, eloResult, roomCode) {
     return envelope;
 }
 
+// ── Persister une partie AMICALE (historique + compteurs, ELO intouché) ──
+// Chaîne totalement séparée du classé : type 'friendly', clé friendly_results
+// (≠ game_results → une enveloppe amicale postée par erreur sur save_elo.php
+// est rejetée avec "Aucune donnée", elle ne peut JAMAIS toucher l'ELO),
+// endpoint dédié save_friendly.php.
+// Seuls les joueurs CONNECTÉS (id 'uXX') sont enregistrés ; une partie
+// entre deux invités ne génère aucune enveloppe.
+function persistFriendly(room, winnerId, roomCode) {
+    const players = Object.values(room.players);
+    const totalQuestions = room.questions?.length || 10;
+
+    const friendly_results = players.map(p => {
+        const numericId = parseInt(String(p.id).replace(/^u/, ''), 10);
+        return {
+            user_id:          numericId,
+            score:            p.score || 0,
+            correct:          p.correct || 0,
+            wrong:            p.wrong || 0,
+            total_q:          totalQuestions,
+            is_winner:        p.id === winnerId,
+            category_results: p.catResults || [],
+        };
+    }).filter(u => u.user_id > 0);
+
+    if (friendly_results.length === 0) return null; // que des invités → rien à sauver
+
+    const envelope = signEnvelope({
+        type:             'friendly',
+        room_code:        roomCode || '',
+        issued_at:        Date.now(),
+        friendly_results: friendly_results,
+    });
+
+    // 1) Tentative directe Node → PHP (local XAMPP uniquement ;
+    //    en prod DIRECT_SAVE=0 coupe cet appel, bloqué par InfinityFree)
+    postToPhp('/save_friendly.php', envelope, 'save_friendly');
+
+    // 2) Relais navigateur (prod) : émis par endGame via 'save_envelope_friendly'
+    return envelope;
+}
+
 function endGame(roomCode, winnerId) {
     const room = rooms.get(roomCode);
     if (!room) return;
@@ -629,8 +670,13 @@ function endGame(roomCode, winnerId) {
         // save_elo.php (indispensable en prod où Node→PHP est bloqué)
         if (saveEnvelope) io.to(roomCode).emit('save_envelope', saveEnvelope);
     } else if (winner && loser) {
-        // Partie amicale : on log mais on ne touche pas à l'ELO en BDD
-        console.log(`🎉 [AMICAL] ${winner.name} bat ${loser.name} — pas de changement ELO`);
+        // Partie amicale : l'ELO ne bouge pas, MAIS on enregistre la partie
+        // (historique + compteurs dashboard) pour les joueurs connectés.
+        // → Enveloppe dédiée type 'friendly', endpoint dédié save_friendly.php
+        //   (chaîne 100% séparée du classé : zéro risque sur save_elo.php).
+        console.log(`🎉 [AMICAL] ${winner.name} bat ${loser.name} — ELO figé, enregistrement partie`);
+        const friendlyEnvelope = persistFriendly(room, winnerId, roomCode);
+        if (friendlyEnvelope) io.to(roomCode).emit('save_envelope_friendly', friendlyEnvelope);
     }
 
     io.to(roomCode).emit('game_over', {
